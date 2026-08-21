@@ -23,10 +23,19 @@ BOT_NAME = getenv("BOT_NAME" , "𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞")
 # ---------------------------------------------------------
 ASSUSERNAME = getenv("ASSUSERNAME" , "MREVO")
 # ---------------------------------------------------------
-# ---------- SHRUTI YOUTUBE API (Naisha Bot Integration) ----------
-# Vars For API End Pont.
-YTPROXY_URL = getenv("YTPROXY_URL", 'https://api01.shrutibots.site') ## xBit Music Endpoint.
-YT_API_KEY = getenv("YT_API_KEY" , 'ShrutiBotsJmu7zzepcrb4Ofm8qbim') ## Your API key like: xbit_10000000xx0233 Get from  https://t.me/tgmusic_apibot
+# ---------- SHRUTI YOUTUBE API ----------
+# These MUST be named exactly this way — CRAZYHUBBOT/platforms/Youtube.py
+# reads these exact env var names directly. Get your own key from
+# @SHRUTIAPIBOT on Telegram; without it, the bot falls back to a shared
+# demo key that gets rate-limited fast since many bots share it.
+SHRUTI_API_URL = getenv("SHRUTI_API_URL", "https://api01.shrutibots.site")
+SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
+
+# Set to "False" to skip the ShrutiAPI entirely and always download via
+# cookie-free yt-dlp instead — no API key needed at all. Downloads will
+# be a bit slower (yt-dlp extracts + downloads directly from YouTube)
+# but won't depend on any external API being up or rate-limited.
+USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
 
 #---------------------------------------------------------------
 #---------------------------------------------------------------
@@ -59,9 +68,9 @@ DEEP_API = getenv("DEEP_API")
 # ----------------------------------------------------------------
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
-    "https://github.com/liamgang389/CRAZYMUSIC-BOT",
+    "https://github.com/liamgang389/CrazyMUSIC-BOT",
 )
-UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "main")
+UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "Master")
 GIT_TOKEN = getenv(
     "GIT_TOKEN", None
 )  # ----------------------------------------------------------------
