@@ -8,6 +8,7 @@ off the moment the bot stops being admin or leaves. /quiz, /quizscore and
 """
 
 import asyncio
+import re
 import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -43,7 +44,7 @@ from CRAZYHUBBOT.mongo.quizdb import (
 )
 from CRAZYHUBBOT.utils.quiz_bank import pick_question
 
-QUIZ_DURATION = 30  # seconds each quiz stays open for answers
+QUIZ_DURATION = 600  # seconds each quiz stays open for answers (10 minutes)
 TICK_INTERVAL = 30  # how often we check whether any group's quiz is due
 
 # chat_id -> (is_admin: bool, checked_at: float) — separate, self-contained
@@ -86,6 +87,15 @@ def _quiz_buttons(chat_id: int) -> InlineKeyboardMarkup:
     )
 
 
+def _duration_display(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds} Seconds"
+    minutes, rem = divmod(seconds, 60)
+    if rem == 0:
+        return f"{minutes} Minute{'s' if minutes != 1 else ''}"
+    return f"{minutes}m {rem}s"
+
+
 def _format_quiz_text(category: str, question: str, options: list) -> str:
     letters = ["A", "B", "C", "D"]
     option_lines = "\n".join(
@@ -97,7 +107,7 @@ def _format_quiz_text(category: str, question: str, options: list) -> str:
         f"📚 {category}\n\n"
         f"❓ Q. {question}\n\n"
         f"{option_lines}\n\n"
-        f"⏳ {QUIZ_DURATION} Seconds\n"
+        f"⏳ {_duration_display(QUIZ_DURATION)}\n"
         f"━━━━━━━━━━━━━━━━━━"
     )
 
@@ -309,6 +319,59 @@ async def _quiz_answer_cb(_, cq: CallbackQuery):
             await cq.answer("⚠️ Something went wrong.")
         except Exception:
             pass
+
+
+@app.on_message(
+    filters.group & filters.reply & filters.text & ~filters.bot & ~filters.via_bot,
+    group=73,
+)
+async def _quiz_text_answer(_, message):
+    """Lets people answer by replying 'A' / 'B' / 'C' / 'D' (any case,
+    with or without a trailing ')' or '.') directly to the quiz message,
+    instead of only via the inline buttons."""
+    try:
+        reply_to = message.reply_to_message
+        if not reply_to or not message.from_user:
+            return
+
+        match = re.match(r"^\s*([ABCD])[).]?\s*$", (message.text or "").upper())
+        if not match:
+            return
+        idx = "ABCD".index(match.group(1))
+
+        chat_id = message.chat.id
+        quiz = await get_active_quiz(chat_id)
+        if not quiz or quiz.get("message_id") != reply_to.id:
+            return
+
+        user = message.from_user
+        newly_recorded = await record_answer(
+            chat_id,
+            user.id,
+            idx,
+            quiz["correct_index"],
+            user.first_name or "",
+            user.username or "",
+        )
+        if not newly_recorded:
+            return await message.reply(
+                "⚠️ You already answered this question.", quote=True
+            )
+
+        is_correct = idx == quiz["correct_index"]
+        await add_score(chat_id, user.id, user.username or "", user.first_name or "", is_correct)
+
+        letters = ["A", "B", "C", "D"]
+        chosen_text = quiz["options"][idx]
+        if is_correct:
+            await message.reply(f"🎉 Correct!\n✅ {letters[idx]}) {chosen_text}", quote=True)
+        else:
+            await message.reply(
+                f"❌ Wrong Answer\n❌ Your answer: {letters[idx]}) {chosen_text}",
+                quote=True,
+            )
+    except Exception:
+        return
 
 
 # ---------------------------------------------------------------------------
