@@ -1,4 +1,5 @@
 import time
+import datetime
 
 from CRAZYHUBBOT.utils.mongo import db
 
@@ -122,16 +123,58 @@ async def save_used_question(chat_id: int, question_text: str):
 # Scores / leaderboard (per group, never mixed)
 # ---------------------------------------------------------------------------
 
-async def add_score(chat_id: int, user_id: int, username: str, first_name: str, correct: bool):
-    inc = {"quiz_count": 1, "correct_answers": 1 if correct else 0,
-           "wrong_answers": 0 if correct else 1}
+def _week_key(ts: float = None) -> str:
+    dt = datetime.datetime.utcfromtimestamp(ts or time.time())
+    year, week, _ = dt.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+async def add_score(
+    chat_id: int, user_id: int, username: str, first_name: str,
+    correct: bool, fast: bool = False,
+):
+    """Updates all-time points, this week's points (auto-resets every
+    week, no cron job needed), and the user's current answer streak.
+    Returns (points_awarded_this_answer, streak_after_this_answer)."""
+    doc = await quiz_scores_db.find_one({"chat_id": chat_id, "user_id": user_id})
+    current_week = _week_key()
+    weekly_points = 0
+    streak = 0
+    if doc:
+        if doc.get("week_key") == current_week:
+            weekly_points = doc.get("weekly_points", 0)
+        streak = doc.get("streak", 0)
+    best_streak = (doc or {}).get("best_streak", 0)
+
+    points_awarded = 0
     if correct:
-        inc["total_points"] = 1
+        points_awarded = 2 if fast else 1
+        streak += 1
+        best_streak = max(best_streak, streak)
+    else:
+        streak = 0
+
     await quiz_scores_db.update_one(
         {"chat_id": chat_id, "user_id": user_id},
-        {"$inc": inc, "$set": {"username": username, "first_name": first_name}},
+        {
+            "$inc": {
+                "quiz_count": 1,
+                "correct_answers": 1 if correct else 0,
+                "wrong_answers": 0 if correct else 1,
+                "total_points": points_awarded,
+            },
+            "$set": {
+                "username": username,
+                "first_name": first_name,
+                "streak": streak,
+                "best_streak": best_streak,
+                "week_key": current_week,
+                "weekly_points": weekly_points + points_awarded,
+            },
+        },
         upsert=True,
     )
+    return points_awarded, streak
 
 
 async def get_user_score(chat_id: int, user_id: int):
@@ -142,6 +185,13 @@ async def get_leaderboard(chat_id: int, limit: int = 10) -> list:
     cursor = quiz_scores_db.find({"chat_id": chat_id}).sort(
         "total_points", -1
     ).limit(limit)
+    return [doc async for doc in cursor]
+
+
+async def get_weekly_leaderboard(chat_id: int, limit: int = 10) -> list:
+    cursor = quiz_scores_db.find(
+        {"chat_id": chat_id, "week_key": _week_key()}
+    ).sort("weekly_points", -1).limit(limit)
     return [doc async for doc in cursor]
 
 
