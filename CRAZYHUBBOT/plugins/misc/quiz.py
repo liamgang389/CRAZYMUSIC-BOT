@@ -34,6 +34,7 @@ from CRAZYHUBBOT.mongo.quizdb import (
     get_recent_questions,
     get_settings,
     get_user_score,
+    get_weekly_leaderboard,
     record_answer,
     register_group,
     save_used_question,
@@ -301,13 +302,20 @@ async def _quiz_answer_cb(_, cq: CallbackQuery):
             )
 
         is_correct = idx == quiz["correct_index"]
-        await add_score(chat_id, user.id, user.username or "", user.first_name or "", is_correct)
+        answered_fast = (time.time() - quiz.get("started_at", 0)) <= 60
+        points, streak = await add_score(
+            chat_id, user.id, user.username or "", user.first_name or "",
+            is_correct, fast=answered_fast,
+        )
 
         letters = ["A", "B", "C", "D"]
         chosen_text = quiz["options"][idx]
         if is_correct:
+            bonus_line = "\n⚡ Speed Bonus +2!" if answered_fast else f"\n+{points}"
+            streak_line = f"\n🔥 Streak: {streak}" if streak > 1 else ""
             await cq.answer(
-                f"🎉 Correct!\n✅ {letters[idx]}) {chosen_text}", show_alert=True
+                f"🎉 Correct!\n✅ {letters[idx]}) {chosen_text}{bonus_line}{streak_line}",
+                show_alert=True,
             )
         else:
             await cq.answer(
@@ -359,12 +367,21 @@ async def _quiz_text_answer(_, message):
             )
 
         is_correct = idx == quiz["correct_index"]
-        await add_score(chat_id, user.id, user.username or "", user.first_name or "", is_correct)
+        answered_fast = (time.time() - quiz.get("started_at", 0)) <= 60
+        points, streak = await add_score(
+            chat_id, user.id, user.username or "", user.first_name or "",
+            is_correct, fast=answered_fast,
+        )
 
         letters = ["A", "B", "C", "D"]
         chosen_text = quiz["options"][idx]
         if is_correct:
-            await message.reply(f"🎉 Correct!\n✅ {letters[idx]}) {chosen_text}", quote=True)
+            bonus_line = "\n⚡ Speed Bonus +2!" if answered_fast else f"\n+{points}"
+            streak_line = f"\n🔥 Streak: {streak}" if streak > 1 else ""
+            await message.reply(
+                f"🎉 Correct!\n✅ {letters[idx]}) {chosen_text}{bonus_line}{streak_line}",
+                quote=True,
+            )
         else:
             await message.reply(
                 f"❌ Wrong Answer\n❌ Your answer: {letters[idx]}) {chosen_text}",
@@ -426,10 +443,32 @@ async def _quiz_rank(_, message):
         for i, entry in enumerate(top):
             medal = medals[i] if i < 3 else f"{i + 1}."
             name = entry.get("first_name") or entry.get("username") or "Player"
-            lines.append(f"{medal} {name} — {entry.get('total_points', 0)} points")
-        await message.reply("🏆 **Group Quiz Leaderboard**\n\n" + "\n".join(lines))
+            best_streak = entry.get("best_streak", 0)
+            streak_note = f" (🔥 best streak: {best_streak})" if best_streak > 1 else ""
+            lines.append(f"{medal} {name} — {entry.get('total_points', 0)} points{streak_note}")
+        await message.reply("🏆 **Group Quiz Leaderboard (All-Time)**\n\n" + "\n".join(lines))
     except Exception:
         await message.reply("⚠️ Couldn't fetch the leaderboard right now.")
+
+
+@app.on_message(filters.command("quizweekly") & filters.group)
+async def _quiz_weekly_rank(_, message):
+    try:
+        top = await get_weekly_leaderboard(message.chat.id, limit=10)
+        if not top:
+            return await message.reply("No quiz scores yet this week in this group.")
+        medals = ["🥇", "🥈", "🥉"]
+        lines = []
+        for i, entry in enumerate(top):
+            medal = medals[i] if i < 3 else f"{i + 1}."
+            name = entry.get("first_name") or entry.get("username") or "Player"
+            lines.append(f"{medal} {name} — {entry.get('weekly_points', 0)} points")
+        await message.reply(
+            "📅 **This Week's Quiz Leaderboard**\n\n" + "\n".join(lines) +
+            "\n\nResets automatically at the start of each week."
+        )
+    except Exception:
+        await message.reply("⚠️ Couldn't fetch the weekly leaderboard right now.")
 
 
 # ---------------------------------------------------------------------------
