@@ -14,7 +14,14 @@ from youtubesearchpython.__future__ import VideosSearch
 
 from CRAZYHUBBOT.utils.database import is_on_off
 from CRAZYHUBBOT.utils.formatters import time_to_seconds
-from config import USE_SHRUTI_API
+
+try:
+    from config import USE_SHRUTI_API
+except ImportError:
+    # config.py on the deployed server hasn't been updated with this
+    # variable yet — default to the old behavior (API first, yt-dlp
+    # fallback) instead of crashing the whole bot on import.
+    USE_SHRUTI_API = True
 
 
 import os

@@ -1,5 +1,5 @@
 aiofiles
-pymongo==4.9.0
+pymongo==3.12.0
 SpeechRecognition
 aiohttp 
 asyncio 
@@ -15,7 +15,7 @@ pydub
 pycountry
 heroku3
 apscheduler
-motor>=3.6.0
+motor==2.5.1 
 numpy
 pillow==9.5.0
 psutil

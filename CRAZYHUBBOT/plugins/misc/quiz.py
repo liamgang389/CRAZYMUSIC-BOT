@@ -8,6 +8,7 @@ off the moment the bot stops being admin or leaves. /quiz, /quizscore and
 """
 
 import asyncio
+import random
 import re
 import time
 
@@ -44,6 +45,8 @@ from CRAZYHUBBOT.mongo.quizdb import (
     start_active_quiz,
 )
 from CRAZYHUBBOT.utils.quiz_bank import pick_question
+from CRAZYHUBBOT.mongo.picguessdb import get_active_round
+from CRAZYHUBBOT.plugins.misc.picguess import start_emoji_round, start_word_round
 
 QUIZ_DURATION = 600  # seconds each quiz stays open for answers (10 minutes)
 TICK_INTERVAL = 30  # how often we check whether any group's quiz is due
@@ -117,16 +120,16 @@ def _format_quiz_text(category: str, question: str, options: list) -> str:
 # Sending a quiz + ending it 30s later
 # ---------------------------------------------------------------------------
 
-async def _send_quiz(chat_id: int, settings: dict):
+async def _send_quiz(chat_id: int, settings: dict) -> bool:
     # Never stack a second quiz on top of one still running.
     if await get_active_quiz(chat_id):
-        return
+        return False
 
     try:
         if not await app.get_chat(chat_id):
-            return
+            return False
     except Exception:
-        return
+        return False
 
     used = await get_recent_questions(chat_id)
     picked = pick_question(used, settings.get("last_category"))
@@ -143,7 +146,7 @@ async def _send_quiz(chat_id: int, settings: dict):
         await set_next_quiz_at(
             chat_id, time.time() + settings.get("interval", 3600)
         )
-        return
+        return False
 
     await start_active_quiz(
         chat_id,
@@ -158,6 +161,7 @@ async def _send_quiz(chat_id: int, settings: dict):
     await set_next_quiz_at(chat_id, time.time() + settings.get("interval", 3600))
 
     asyncio.create_task(_end_quiz_after_delay(chat_id, sent.id))
+    return True
 
 
 async def _end_quiz_after_delay(chat_id: int, message_id: int):
@@ -198,6 +202,35 @@ async def _end_quiz_after_delay(chat_id: int, message_id: int):
         return
 
 
+async def _send_round(chat_id: int, settings: dict):
+    """Automatic-turn dispatcher: randomly picks the round type each
+    time so the automatic quiz varies between a normal MCQ, an
+    emoji-guess, and a word-unscramble round — instead of always being
+    the same format. Never stacks a new round on top of one already
+    running, of any type."""
+    if await get_active_quiz(chat_id) or await get_active_round(chat_id):
+        return
+
+    round_type = random.choice(["mcq", "mcq", "emoji", "word"])  # MCQ shows up a bit more often
+    started = False
+    if round_type == "mcq":
+        started = await _send_quiz(chat_id, settings)
+    elif round_type == "emoji":
+        started = await start_emoji_round(chat_id)
+    else:
+        started = await start_word_round(chat_id)
+
+    if not started and round_type != "mcq":
+        # Emoji/word round failed to start (e.g. image generation
+        # error) — fall back to a normal MCQ so this turn isn't wasted.
+        started = await _send_quiz(chat_id, settings)
+
+    if started and round_type != "mcq":
+        # _send_quiz already schedules its own next_quiz_at; picguess
+        # rounds don't know about the quiz interval, so schedule here.
+        await set_next_quiz_at(chat_id, time.time() + settings.get("interval", 3600))
+
+
 # ---------------------------------------------------------------------------
 # Scheduler tick — checks every group's own independent due-time
 # ---------------------------------------------------------------------------
@@ -217,7 +250,7 @@ async def _quiz_tick():
                 continue
             if g.get("next_quiz_at", 0) > now:
                 continue
-            await _send_quiz(chat_id, g)
+            await _send_round(chat_id, g)
         except Exception:
             continue
 
@@ -407,6 +440,10 @@ async def _quiz_info(_, message):
         if await get_active_quiz(message.chat.id):
             return await message.reply(
                 "🧠 A quiz is running right now in this group — answer it above! ⏳"
+            )
+        if await get_active_round(message.chat.id):
+            return await message.reply(
+                "🎨 A picture-guess round is running right now in this group — solve it above! ⏳"
             )
         remaining = max(0, int(settings.get("next_quiz_at", 0) - time.time()))
         mins, secs = divmod(remaining, 60)
