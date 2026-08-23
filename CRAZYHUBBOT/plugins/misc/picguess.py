@@ -26,6 +26,7 @@ from CRAZYHUBBOT.mongo.picguessdb import (
     start_round,
 )
 from CRAZYHUBBOT.mongo.quizdb import add_score, get_active_quiz
+from CRAZYHUBBOT.utils.picguess_ai import GEMINI_API_KEY, ai_generate_words
 from CRAZYHUBBOT.utils.picguess_bank import pick_emoji_round, pick_word_round_ai, scramble
 from CRAZYHUBBOT.utils.picguess_image import generate_emoji_card_for, generate_word_card
 
@@ -207,3 +208,35 @@ async def _word_guess_answer(_, message):
         )
     except Exception:
         return
+
+
+@app.on_message(filters.command(["aistatus"]))
+async def _ai_status(_, message):
+    """Live check: is GEMINI_API_KEY set, and does an actual test call
+    to Gemini succeed? Anyone can run this — it's diagnostic only, it
+    doesn't start or change anything."""
+    if not GEMINI_API_KEY:
+        return await message.reply(
+            "🔴 **AI word generation: OFF**\n\n"
+            "`GEMINI_API_KEY` isn't set — word-guess rounds are using the "
+            "built-in curated word list. Get a free key at "
+            "https://aistudio.google.com/apikey and set it as an env "
+            "variable to turn this on."
+        )
+
+    status = await message.reply("⏳ Testing connection to Gemini...")
+    words = await ai_generate_words(count=5)
+    if words:
+        await status.edit(
+            "🟢 **AI word generation: WORKING**\n\n"
+            f"Test call succeeded — Gemini returned: {', '.join(words)}"
+        )
+    else:
+        await status.edit(
+            "🟡 **AI word generation: KEY SET, BUT CALL FAILED**\n\n"
+            "`GEMINI_API_KEY` is set, but the test call didn't return usable "
+            "words — could be an invalid/expired key, no quota left, or a "
+            "network issue. Word-guess rounds will keep using the curated "
+            "list until this is fixed. Check the bot's logs for the exact "
+            "error (search for `[picguess AI]`)."
+        )
