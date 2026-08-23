@@ -26,7 +26,7 @@ from CRAZYHUBBOT.mongo.picguessdb import (
     start_round,
 )
 from CRAZYHUBBOT.mongo.quizdb import add_score, get_active_quiz
-from CRAZYHUBBOT.utils.picguess_bank import pick_emoji_round, pick_word_round, scramble
+from CRAZYHUBBOT.utils.picguess_bank import pick_emoji_round, pick_word_round_ai, scramble
 from CRAZYHUBBOT.utils.picguess_image import generate_emoji_card_for, generate_word_card
 
 ROUND_TIMEOUT = 300  # seconds a round stays open if nobody solves it
@@ -93,7 +93,7 @@ async def start_word_round(chat_id: int) -> bool:
     semantics as start_emoji_round()."""
     if await get_active_round(chat_id) or await get_active_quiz(chat_id):
         return False
-    answer = pick_word_round()
+    answer = await pick_word_round_ai()
     scrambled = scramble(answer)
     path = generate_word_card(scrambled)
     try:
