@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+    "gemini-3.6-flash:generateContent"
 )
 
 _WORD_RE = re.compile(r"^[a-z]{3,15}$")
