@@ -48,14 +48,21 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
         f"Rules: each must be ONE word only, letters only (no spaces, "
         f"numbers, hyphens, or punctuation), 3 to 15 letters long, and a "
         f"real recognizable word or name — nothing offensive or obscure. "
-        f"Do not repeat any of these: {avoid_text}. "
-        f"Reply with ONLY a JSON array of lowercase strings, nothing else, "
-        f'no markdown. Example: ["pushpa","kohli","mumbai"]'
+        f"Do not repeat any of these: {avoid_text}."
     )
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.9, "maxOutputTokens": 400},
+        "generationConfig": {
+            "temperature": 0.9,
+            "maxOutputTokens": 400,
+            # Forces Gemini to return only a valid JSON array of strings —
+            # no markdown fences, no extra prose to accidentally break
+            # parsing. This is the officially supported structured-output
+            # mode, not just a prompt instruction.
+            "responseMimeType": "application/json",
+            "responseSchema": {"type": "ARRAY", "items": {"type": "STRING"}},
+        },
     }
 
     try:
@@ -77,9 +84,29 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
         return []
 
     try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        candidate = data["candidates"][0]
+        # Concatenate all parts' text, in case the response is split
+        # across multiple parts (some models include extra parts).
+        text = "".join(
+            p.get("text", "") for p in candidate["content"]["parts"]
+        ).strip()
+        if not text:
+            finish_reason = candidate.get("finishReason", "unknown")
+            logger.warning(
+                f"[picguess AI] Gemini returned no text (finishReason={finish_reason})."
+            )
+            return []
         text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-        raw_words = json.loads(text)
+        try:
+            raw_words = json.loads(text)
+        except Exception:
+            # Last-resort fallback: pull out the first [...] block in
+            # case there's stray text around the JSON despite the
+            # structured-output config.
+            match = re.search(r"\[.*\]", text, flags=re.DOTALL)
+            if not match:
+                raise
+            raw_words = json.loads(match.group(0))
     except Exception as e:
         logger.warning(f"[picguess AI] Couldn't parse Gemini's response: {e}")
         return []
