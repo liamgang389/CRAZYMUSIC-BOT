@@ -107,6 +107,12 @@ SUPPORT_CHAT = getenv("SUPPORT_CHAT", "https://t.me/CrazyHubSupport")
 # --------------------------------------------------------------------------------
 AUTO_LEAVING_ASSISTANT = getenv("AUTO_LEAVING_ASSISTANT", "True")
 AUTO_LEAVE_ASSISTANT_TIME = int(getenv("ASSISTANT_LEAVE_TIME", "5400"))
+
+# Seconds to wait in an empty voice chat (no real listeners) before the
+# assistant automatically stops the stream and leaves the VC.
+AUTO_END_TIME = int(getenv("AUTO_END_TIME", "60"))
+# How often (in seconds) the empty-VC watcher checks every active call.
+AUTO_END_CHECK_INTERVAL = int(getenv("AUTO_END_CHECK_INTERVAL", "10"))
 SONG_DOWNLOAD_DURATION = int(getenv("SONG_DOWNLOAD_DURATION", "9999999"))
 SONG_DOWNLOAD_DURATION_LIMIT = int(getenv("SONG_DOWNLOAD_DURATION_LIMIT", "9999999"))
 # --------------------------------------------------------------------------------
