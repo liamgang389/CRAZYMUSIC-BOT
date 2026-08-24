@@ -70,7 +70,7 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
             async with session.post(
                 f"{GEMINI_URL}?key={GEMINI_API_KEY}",
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=15),
+                timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status != 200:
                     body = await resp.text()
@@ -80,7 +80,9 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
                     return []
                 data = await resp.json()
     except Exception as e:
-        logger.warning(f"[picguess AI] Gemini API call failed: {e}")
+        logger.warning(
+            f"[picguess AI] Gemini API call failed: {type(e).__name__}: {e}"
+        )
         return []
 
     try:
@@ -108,7 +110,9 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
                 raise
             raw_words = json.loads(match.group(0))
     except Exception as e:
-        logger.warning(f"[picguess AI] Couldn't parse Gemini's response: {e}")
+        logger.warning(
+            f"[picguess AI] Couldn't parse Gemini's response: {type(e).__name__}: {e}"
+        )
         return []
 
     if not isinstance(raw_words, list):
