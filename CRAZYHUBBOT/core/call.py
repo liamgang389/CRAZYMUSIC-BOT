@@ -327,9 +327,29 @@ class Call(PyTgCalls):
             await add_active_video_chat(chat_id)
         if await is_autoend():
             counter[chat_id] = {}
-            users = len(await assistant.get_participants(chat_id))
-            if users == 1:
-                autoend[chat_id] = datetime.now() + timedelta(minutes=1)
+            try:
+                users = len(await assistant.get_participants(chat_id))
+            except Exception:
+                users = 1
+            if users <= 1:
+                autoend[chat_id] = datetime.now() + timedelta(
+                    seconds=config.AUTO_END_TIME
+                )
+            else:
+                autoend[chat_id] = {}
+
+    async def real_listeners(self, chat_id: int) -> int:
+        """Number of real (non-assistant) members currently in the VC.
+
+        The assistant itself is always one participant of its own call, so
+        anything beyond that counts as a real listener.
+        """
+        assistant = await group_assistant(self, chat_id)
+        try:
+            participants = await assistant.get_participants(chat_id)
+        except Exception:
+            return 0
+        return max(0, len(participants) - 1)
 
     async def _try_autoplay(self, chat_id, popped) -> bool:
         """Called when the queue just ran out. If autoplay is on for this
