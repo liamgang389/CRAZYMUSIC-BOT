@@ -107,7 +107,7 @@ async def pick_word_round_ai(exclude_answer: str = None) -> str:
     global _ai_cache, _ai_recent
 
     if len(_ai_cache) < 3:
-        fresh = await ai_generate_words(count=15, avoid=_ai_recent[-30:])
+        fresh = await ai_generate_words(count=10, avoid=_ai_recent[-30:])
         for w in fresh:
             if w not in _ai_cache:
                 _ai_cache.append(w)

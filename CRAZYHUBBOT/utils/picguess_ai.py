@@ -55,7 +55,7 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.9,
-            "maxOutputTokens": 1024,
+            "maxOutputTokens": 2048,
             # Forces Gemini to return only a valid JSON array of strings —
             # no markdown fences, no extra prose to accidentally break
             # parsing. This is the officially supported structured-output
