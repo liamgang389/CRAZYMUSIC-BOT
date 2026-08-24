@@ -1,12 +1,17 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pyrogram.enums import ChatType
 
 import config
 from CRAZYHUBBOT import app
 from CRAZYHUBBOT.core.call import DAXX, autoend
-from CRAZYHUBBOT.utils.database import get_client, is_active_chat, is_autoend
+from CRAZYHUBBOT.utils.database import (
+    get_active_chats,
+    get_client,
+    is_active_chat,
+    is_autoend,
+)
 
 
 async def auto_leave():
@@ -50,28 +55,51 @@ asyncio.create_task(auto_leave())
 
 
 async def auto_end():
-    while not await asyncio.sleep(5):
+    """Watches every active voice chat. If it ever becomes empty of real
+    (non-assistant) listeners, a countdown starts; if a real user is
+    still absent when it expires the assistant stops the stream and
+    leaves the VC. If a real user joins/rejoins in the meantime, the
+    countdown is cancelled and playback keeps going normally."""
+    while not await asyncio.sleep(config.AUTO_END_CHECK_INTERVAL):
         if not await is_autoend():
             continue
-        for chat_id in autoend:
+
+        active_chats = await get_active_chats()
+        for chat_id in list(active_chats):
+            if not await is_active_chat(chat_id):
+                autoend[chat_id] = {}
+                continue
+
+            try:
+                listeners = await DAXX.real_listeners(chat_id)
+            except Exception:
+                continue
+
+            if listeners > 0:
+                # someone real is in the VC, cancel any pending leave
+                if autoend.get(chat_id):
+                    autoend[chat_id] = {}
+                continue
+
             timer = autoend.get(chat_id)
             if not timer:
+                autoend[chat_id] = datetime.now() + timedelta(
+                    seconds=config.AUTO_END_TIME
+                )
                 continue
+
             if datetime.now() > timer:
-                if not await is_active_chat(chat_id):
-                    autoend[chat_id] = {}
-                    continue
                 autoend[chat_id] = {}
                 try:
                     await DAXX.stop_stream(chat_id)
-                except:
+                except Exception:
                     continue
                 try:
                     await app.send_message(
                         chat_id,
-                        "» ʙᴏᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ʟᴇғᴛ ᴠɪᴅᴇᴏᴄʜᴀᴛ ʙᴇᴄᴀᴜsᴇ ɴᴏ ᴏɴᴇ ᴡᴀs ʟɪsᴛᴇɴɪɴɢ ᴏɴ ᴠɪᴅᴇᴏᴄʜᴀᴛ.",
+                        "» ʙᴏᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ʟᴇғᴛ ᴠɪᴅᴇᴏᴄʜᴀᴛ ʙᴇᴄᴀᴜsᴇ ɴᴏ ʀᴇᴀʟ ᴜsᴇʀ ᴡᴀs ᴘʀᴇsᴇɴᴛ ᴏɴ ᴠɪᴅᴇᴏᴄʜᴀᴛ.",
                     )
-                except:
+                except Exception:
                     continue
 
 
