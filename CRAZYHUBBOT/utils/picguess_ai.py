@@ -55,7 +55,7 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.9,
-            "maxOutputTokens": 400,
+            "maxOutputTokens": 1024,
             # Forces Gemini to return only a valid JSON array of strings —
             # no markdown fences, no extra prose to accidentally break
             # parsing. This is the officially supported structured-output
@@ -110,8 +110,14 @@ async def ai_generate_words(count: int = 15, avoid: list = None) -> list:
                 raise
             raw_words = json.loads(match.group(0))
     except Exception as e:
+        finish_reason = None
+        try:
+            finish_reason = data["candidates"][0].get("finishReason")
+        except Exception:
+            pass
         logger.warning(
-            f"[picguess AI] Couldn't parse Gemini's response: {type(e).__name__}: {e}"
+            f"[picguess AI] Couldn't parse Gemini's response: {type(e).__name__}: {e} "
+            f"(finishReason={finish_reason})"
         )
         return []
 
