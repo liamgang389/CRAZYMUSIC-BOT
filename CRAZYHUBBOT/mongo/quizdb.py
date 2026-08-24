@@ -10,6 +10,10 @@ quiz_answers_db = db.quiz_answers
 
 DEFAULT_INTERVAL = 3600  # 1 hour, in seconds
 
+# Generous safety margin above QUIZ_DURATION (600s / 10 minutes, set in
+# quiz.py). See get_active_quiz() below.
+STALE_QUIZ_SECONDS = 1800
+
 
 # ---------------------------------------------------------------------------
 # Per-group scheduling
@@ -219,8 +223,21 @@ async def start_active_quiz(chat_id, message_id, question, options, correct_inde
 
 
 async def get_active_quiz(chat_id: int):
-    """A quiz is 'active' (still accepting answers) only while ended=False."""
-    return await quiz_answers_db.find_one({"chat_id": chat_id, "ended": False})
+    """A quiz is 'active' (still accepting answers) only while ended=False.
+    Self-heals orphaned quizzes: if one is still marked active well past
+    any reasonable duration, its scheduled auto-end task was almost
+    certainly lost (e.g. the bot restarted mid-quiz) — close it out here
+    instead of blocking every future quiz in this chat forever."""
+    quiz = await quiz_answers_db.find_one({"chat_id": chat_id, "ended": False})
+    if not quiz:
+        return None
+    if time.time() - quiz.get("started_at", 0) > STALE_QUIZ_SECONDS:
+        await quiz_answers_db.update_one(
+            {"_id": quiz["_id"], "ended": False},
+            {"$set": {"ended": True}},
+        )
+        return None
+    return quiz
 
 
 async def record_answer(chat_id: int, user_id: int, option_index: int,
