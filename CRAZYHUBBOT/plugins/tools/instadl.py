@@ -25,16 +25,75 @@ COOKIES_FILE = os.path.join(DOWNLOAD_DIR, "instagram_cookies.txt")
 
 
 def _cookies_file_path():
-    """Writes config.INSTAGRAM_COOKIES (if set) to disk once and returns
-    its path, so yt-dlp can log in as that account for gated posts.
-    Returns None if no cookies were configured — yt-dlp then falls back
-    to anonymous access, which still works for public posts."""
+    """Writes config.INSTAGRAM_COOKIES (if set) to disk and returns its
+    path, so yt-dlp can log in as that account for gated posts. Returns
+    None if no cookies were configured — yt-dlp then falls back to
+    anonymous access, which still works for public posts.
+
+    Defensive about how the value arrives: many hosting panels mangle
+    multi-line env vars — either collapsing real newlines away or
+    escaping them as literal backslash-n text — which otherwise breaks
+    the Netscape cookies format yt-dlp expects (one cookie per line,
+    tab-separated) and shows up as "does not look like a Netscape
+    format cookies file". The file is rewritten fresh every time (not
+    just when missing) so a fix to the env var takes effect on the
+    next restart instead of a bad file lingering forever."""
     if not config.INSTAGRAM_COOKIES:
         return None
-    if not os.path.exists(COOKIES_FILE):
-        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        with open(COOKIES_FILE, "w", encoding="utf-8") as f:
-            f.write(config.INSTAGRAM_COOKIES)
+
+    raw = config.INSTAGRAM_COOKIES.strip()
+    # Turn literal "\n"/"\r\n" escape sequences (two characters: a
+    # backslash and a letter) into real newlines — happens when a
+    # panel stores the value as a JSON/escaped string.
+    raw = raw.replace("\\r\\n", "\n").replace("\\n", "\n")
+    # Normalize real CRLF too, and drop any blank lines a paste added.
+    lines = [ln.strip() for ln in raw.replace("\r\n", "\n").split("\n")]
+    lines = [ln for ln in lines if ln]
+
+    if not lines:
+        print("[instadl] INSTAGRAM_COOKIES is set but empty after cleanup — ignoring it.")
+        return None
+
+    if not lines[0].startswith("#"):
+        # Header missing (common when only the cookie rows got
+        # copied) — MozillaCookieJar refuses to load without it.
+        lines.insert(0, "# Netscape HTTP Cookie File")
+
+    content = "\n".join(lines) + "\n"
+
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    with open(COOKIES_FILE, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+
+    # Sanity-check it actually parses as a cookie jar before handing
+    # it to yt-dlp, so a bad file fails with a clear message here
+    # instead of a cryptic yt-dlp error deep in extraction.
+    try:
+        import http.cookiejar
+
+        jar = http.cookiejar.MozillaCookieJar(COOKIES_FILE)
+        jar.load(ignore_discard=True, ignore_expires=True)
+        if len(jar) == 0:
+            print(
+                "[instadl] INSTAGRAM_COOKIES parsed but contains zero "
+                "cookies — check the pasted content is the full "
+                "cookies.txt file, not just a header or a snippet."
+            )
+    except Exception as e:
+        print(
+            f"[instadl] INSTAGRAM_COOKIES doesn't parse as a valid "
+            f"Netscape cookies file even after cleanup ({e}). Falling "
+            f"back to anonymous access — re-export cookies.txt with "
+            f"'Get cookies.txt LOCALLY' and paste the ENTIRE file "
+            f"content (including the '# Netscape HTTP Cookie File' "
+            f"header line) into INSTAGRAM_COOKIES."
+        )
+        try:
+            os.remove(COOKIES_FILE)
+        except OSError:
+            pass
+        return None
+
     return COOKIES_FILE
 
 
