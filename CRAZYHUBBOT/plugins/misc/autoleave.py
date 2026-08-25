@@ -1,0 +1,106 @@
+import asyncio
+from datetime import datetime, timedelta
+
+from pyrogram.enums import ChatType
+
+import config
+from CRAZYHUBBOT import app
+from CRAZYHUBBOT.core.call import DAXX, autoend
+from CRAZYHUBBOT.utils.database import (
+    get_active_chats,
+    get_client,
+    is_active_chat,
+    is_autoend,
+)
+
+
+async def auto_leave():
+    if config.AUTO_LEAVING_ASSISTANT == str(True):
+        while not await asyncio.sleep(
+            config.AUTO_LEAVE_ASSISTANT_TIME
+        ):
+            from CRAZYHUBBOT.core.userbot import assistants
+
+            for num in assistants:
+                client = await get_client(num)
+                left = 0
+                try:
+                    async for i in client.iter_dialogs():
+                        chat_type = i.chat.type
+                        if chat_type in [
+                            "supergroup",
+                            "group",
+                            "channel",
+                        ]:
+                            chat_id = i.chat.id
+                            if (
+                                chat_id != config.LOGGER_ID
+                                and i.chat.id != -1002133369721
+                            ):
+                                if left == 20:
+                                    continue
+                                if not await is_active_chat(chat_id):
+                                    try:
+                                        await client.leave_chat(
+                                            chat_id
+                                        )
+                                        left += 1
+                                    except:
+                                        continue
+                except:
+                    pass
+
+
+asyncio.create_task(auto_leave())
+
+
+async def auto_end():
+    """Watches every active voice chat. If it ever becomes empty of real
+    (non-assistant) listeners, a countdown starts; if a real user is
+    still absent when it expires the assistant stops the stream and
+    leaves the VC. If a real user joins/rejoins in the meantime, the
+    countdown is cancelled and playback keeps going normally."""
+    while not await asyncio.sleep(config.AUTO_END_CHECK_INTERVAL):
+        if not await is_autoend():
+            continue
+
+        active_chats = await get_active_chats()
+        for chat_id in list(active_chats):
+            if not await is_active_chat(chat_id):
+                autoend[chat_id] = {}
+                continue
+
+            try:
+                listeners = await DAXX.real_listeners(chat_id)
+            except Exception:
+                continue
+
+            if listeners > 0:
+                # someone real is in the VC, cancel any pending leave
+                if autoend.get(chat_id):
+                    autoend[chat_id] = {}
+                continue
+
+            timer = autoend.get(chat_id)
+            if not timer:
+                autoend[chat_id] = datetime.now() + timedelta(
+                    seconds=config.AUTO_END_TIME
+                )
+                continue
+
+            if datetime.now() > timer:
+                autoend[chat_id] = {}
+                try:
+                    await DAXX.stop_stream(chat_id)
+                except Exception:
+                    continue
+                try:
+                    await app.send_message(
+                        chat_id,
+                        "» ʙᴏᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ʟᴇғᴛ ᴠɪᴅᴇᴏᴄʜᴀᴛ ʙᴇᴄᴀᴜsᴇ ɴᴏ ʀᴇᴀʟ ᴜsᴇʀ ᴡᴀs ᴘʀᴇsᴇɴᴛ ᴏɴ ᴠɪᴅᴇᴏᴄʜᴀᴛ.",
+                    )
+                except Exception:
+                    continue
+
+
+asyncio.create_task(auto_end())
