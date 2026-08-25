@@ -6,6 +6,7 @@ import yt_dlp
 from pyrogram import filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo
 
+import config
 from CRAZYHUBBOT import app
 
 # Matches instagram.com / instagr.am links, with or without http(s)://,
@@ -18,8 +19,23 @@ INSTA_LINK_REGEX = re.compile(
 
 DOWNLOAD_DIR = "downloads"
 DOWNLOADING_STICKER_ID = (
-    "CAACAgUAAxkBAAEGXaBqjV15XG2pQat_t4egRhUvQMySFwAC7w8AArB52VZ0CWL6_wMMQj0E"
+    "CAACAgEAAx0CfD7LAgACO7xmZzb83lrLUVhxtmUaanKe0_ionAAC-gADUSkNORIJSVEUKRrhHgQ"
 )
+COOKIES_FILE = os.path.join(DOWNLOAD_DIR, "instagram_cookies.txt")
+
+
+def _cookies_file_path():
+    """Writes config.INSTAGRAM_COOKIES (if set) to disk once and returns
+    its path, so yt-dlp can log in as that account for gated posts.
+    Returns None if no cookies were configured — yt-dlp then falls back
+    to anonymous access, which still works for public posts."""
+    if not config.INSTAGRAM_COOKIES:
+        return None
+    if not os.path.exists(COOKIES_FILE):
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        with open(COOKIES_FILE, "w", encoding="utf-8") as f:
+            f.write(config.INSTAGRAM_COOKIES)
+    return COOKIES_FILE
 
 
 def _extract_entries(link: str) -> list:
@@ -34,6 +50,9 @@ def _extract_entries(link: str) -> list:
         "noplaylist": False,
         "format": "best",
     }
+    cookies_path = _cookies_file_path()
+    if cookies_path:
+        ytdl_opts["cookiefile"] = cookies_path
     with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
         info = ydl.extract_info(link, download=True)
 
@@ -91,11 +110,19 @@ async def _download_instagram(client, message, link: str):
 
     except Exception as e:
         print(f"[instadl] {e}")
-        await message.reply_text(
-            "❌ Couldn't download that — the link might be private, "
-            "deleted, age-restricted, or Instagram is rate-limiting "
-            "right now. Please try again in a bit."
-        )
+        if "empty media response" in str(e).lower() or "logged-in" in str(e).lower():
+            err_text = (
+                "❌ Instagram is asking for a login to view this post. "
+                "The bot owner needs to set the INSTAGRAM_COOKIES "
+                "environment variable to download login-gated content."
+            )
+        else:
+            err_text = (
+                "❌ Couldn't download that — the link might be private, "
+                "deleted, age-restricted, or Instagram is rate-limiting "
+                "right now. Please try again in a bit."
+            )
+        await message.reply_text(err_text)
 
     finally:
         if downloading_sticker:
