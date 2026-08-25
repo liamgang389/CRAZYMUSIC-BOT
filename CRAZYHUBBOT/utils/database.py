@@ -198,21 +198,26 @@ async def set_upvotes(chat_id: int, mode: int):
 
 
 async def is_autoend() -> bool:
+    """Auto-end (leaving an empty voice chat) is ON by default — no
+    command needed. It only returns False if it was explicitly turned
+    off with /autoend disable."""
     chat_id = 1234
-    user = await autoenddb.find_one({"chat_id": chat_id})
-    if not user:
+    disabled = await autoenddb.find_one({"chat_id": chat_id})
+    if disabled:
         return False
     return True
 
 
 async def autoend_on():
     chat_id = 1234
-    await autoenddb.insert_one({"chat_id": chat_id})
+    await autoenddb.delete_one({"chat_id": chat_id})
 
 
 async def autoend_off():
     chat_id = 1234
-    await autoenddb.delete_one({"chat_id": chat_id})
+    user = await autoenddb.find_one({"chat_id": chat_id})
+    if not user:
+        await autoenddb.insert_one({"chat_id": chat_id})
 
 
 async def get_loop(chat_id: int) -> int:

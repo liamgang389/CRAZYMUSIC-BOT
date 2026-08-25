@@ -37,14 +37,6 @@ SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
 # but won't depend on any external API being up or rate-limited.
 USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
 
-# ---------- OPTIONAL: AI-generated words for the Emoji/Word Guess game ----------
-# Fully optional. Without this, /wordguess and the automatic quiz's word
-# rounds just use the built-in curated word list — nothing breaks. Set
-# this to turn on AI-generated words instead (free key at
-# https://aistudio.google.com/apikey). Read directly from os.environ by
-# CRAZYHUBBOT/utils/picguess_ai.py, not from this file.
-# GEMINI_API_KEY = getenv("GEMINI_API_KEY")
-
 #---------------------------------------------------------------
 #---------------------------------------------------------------
 MONGO_DB_URI = getenv("MONGO_DB_URI", None)
