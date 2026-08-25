@@ -120,10 +120,30 @@ def _extract_entries(link: str) -> list:
     for entry in entries:
         if not entry:
             continue
-        filepath = ydl.prepare_filename(entry)
-        if os.path.exists(filepath):
-            is_video = entry.get("vcodec") not in (None, "none")
-            results.append({"path": filepath, "is_video": is_video})
+
+        # yt-dlp's info dict "vcodec" field isn't reliable for deciding
+        # photo vs video (it can be missing/stale after postprocessing
+        # or format merging), and mismatching this is what causes
+        # Telegram to reject the upload with PHOTO_EXT_INVALID. The
+        # actual file extension on disk is the ground truth instead.
+        requested = entry.get("requested_downloads") or []
+        filepath = None
+        for rd in requested:
+            candidate = rd.get("filepath") or rd.get("_filename")
+            if candidate and os.path.exists(candidate):
+                filepath = candidate
+                break
+        if not filepath:
+            candidate = ydl.prepare_filename(entry)
+            if os.path.exists(candidate):
+                filepath = candidate
+
+        if not filepath:
+            continue
+
+        ext = os.path.splitext(filepath)[1].lower().lstrip(".")
+        is_video = ext in ("mp4", "mov", "mkv", "webm", "m4v", "avi")
+        results.append({"path": filepath, "is_video": is_video})
     return results
 
 
@@ -151,10 +171,18 @@ async def _download_instagram(client, message, link: str):
 
         if len(files) == 1:
             f = files[0]
-            if f["is_video"]:
-                await message.reply_video(f["path"])
-            else:
-                await message.reply_photo(f["path"])
+            try:
+                if f["is_video"]:
+                    await message.reply_video(f["path"])
+                else:
+                    await message.reply_photo(f["path"])
+            except Exception as send_err:
+                # Belt-and-braces: if Telegram still rejects it as the
+                # detected type (e.g. an odd container/codec it's
+                # picky about), try the other type before giving up,
+                # instead of failing the whole download.
+                print(f"[instadl] send as {'video' if f['is_video'] else 'photo'} failed ({send_err}), trying document")
+                await message.reply_document(f["path"])
         else:
             # Carousel post — send everything together as an album.
             media_group = []
