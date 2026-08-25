@@ -14,8 +14,8 @@ from CRAZYHUBBOT.mongo.couples_db import _get_image, get_couple
 POLICE = [
     [
         InlineKeyboardButton(
-            text="𝐑ᴇᴅᴢᴏɴᴇ 𝐍ᴇᴛᴡᴏʀᴋ's",
-            url=f"https://t.me/Redzone_Networks",
+            text="𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞",
+            url=f"https://t.me/Fake_SmileK",
         ),
     ],
 ]
