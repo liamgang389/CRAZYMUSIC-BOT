@@ -66,6 +66,27 @@ GPT_API = getenv("GPT_API")
 # ----------------------------------------------------------------
 DEEP_API = getenv("DEEP_API")
 # ----------------------------------------------------------------
+# OPTIONAL: Instagram cookies for /insta and /ig.
+# Many Instagram reels now require a logged-in session to fetch at all
+# ("Instagram sent an empty media response" in logs = this). Fully
+# optional — without it, publicly-accessible posts still download
+# fine, only login-gated ones fail. To enable: export your Instagram
+# cookies (logged in, in a normal browser) as a cookies.txt file using
+# a browser extension like "Get cookies.txt LOCALLY", then paste the
+# ENTIRE file content here as one env var (multi-line values work
+# fine in most host panels, e.g. Heroku config vars).
+INSTAGRAM_COOKIES = getenv("INSTAGRAM_COOKIES", None)
+# ----------------------------------------------------------------
+# RapidAPI key for /story (Instagram Stories downloader by username).
+# Defaults to the key you gave me so it works out of the box — but
+# it's YOUR personal RapidAPI key, tied to your account's request
+# quota. Move it into your own env var / secrets panel and rotate it
+# if you ever share this repo publicly, since anyone with the code
+# can otherwise use up your quota.
+RAPIDAPI_INSTAGRAM_KEY = getenv(
+    "RAPIDAPI_INSTAGRAM_KEY", "63a242b19dmsha3ab5f2eb03752ep1f97a8jsndb10651254cb"
+)
+# ----------------------------------------------------------------
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
     "https://github.com/liamgang389/CrazyMUSIC-BOT",
