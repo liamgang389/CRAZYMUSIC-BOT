@@ -1,15 +1,12 @@
+import asyncio
+import os
 import re
 
-import httpx
+import yt_dlp
+from pyrogram import filters
+from pyrogram.types import InputMediaPhoto, InputMediaVideo
 
 from CRAZYHUBBOT import app
-from pyrogram import filters
-
-
-DOWNLOADING_STICKER_ID = (
-    "CAACAgEAAx0CfD7LAgACO7xmZzb83lrLUVhxtmUaanKe0_ionAAC-gADUSkNORIJSVEUKRrhHgQ"
-)
-API_URL = "https://karma-api2.vercel.app/instadl"  # Replace with your actual API URL
 
 # Matches instagram.com / instagr.am links, with or without http(s)://,
 # with or without www. — used both to auto-detect a link in any message
@@ -19,48 +16,95 @@ INSTA_LINK_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+DOWNLOAD_DIR = "downloads"
+DOWNLOADING_STICKER_ID = (
+    "CAACAgUAAxkBAAEGXaBqjV15XG2pQat_t4egRhUvQMySFwAC7w8AArB52VZ0CWL6_wMMQj0E"
+)
+
+
+def _extract_entries(link: str) -> list:
+    """Blocking call — runs in a thread. Returns a list of yt-dlp info
+    dicts: one per item for a carousel post, or a single-item list for
+    a reel/photo/video post."""
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    ytdl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "outtmpl": os.path.join(DOWNLOAD_DIR, "insta_%(id)s_%(autonumber)s.%(ext)s"),
+        "noplaylist": False,
+        "format": "best",
+    }
+    with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
+        info = ydl.extract_info(link, download=True)
+
+    entries = info.get("entries") if info.get("entries") is not None else [info]
+    results = []
+    for entry in entries:
+        if not entry:
+            continue
+        filepath = ydl.prepare_filename(entry)
+        if os.path.exists(filepath):
+            is_video = entry.get("vcodec") not in (None, "none")
+            results.append({"path": filepath, "is_video": is_video})
+    return results
+
 
 async def _download_instagram(client, message, link: str):
     downloading_sticker = None
+    files = []
     try:
         # This sticker file_id may not resolve on every bot account/session
         # (Telegram file_ids aren't always portable between bots), so a
-        # failure here must not abort the whole download or crash the
-        # finally block below.
+        # failure here must not abort the whole download.
         try:
             downloading_sticker = await message.reply_sticker(DOWNLOADING_STICKER_ID)
         except Exception as sticker_err:
             print(f"[instadl] couldn't send status sticker: {sticker_err}")
 
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(API_URL, params={"url": link})
-            response.raise_for_status()
-            data = response.json()
+        loop = asyncio.get_event_loop()
+        files = await loop.run_in_executor(None, _extract_entries, link)
 
-        if "content_url" in data:
-            content_url = data["content_url"]
-            content_type = "video" if "video" in content_url else "photo"
-
-            if content_type == "photo":
-                await message.reply_photo(content_url)
-            elif content_type == "video":
-                await message.reply_video(content_url)
-            else:
-                await message.reply_text("Unsupported content type.")
-        else:
+        if not files:
             await message.reply_text(
-                "Unable to fetch content. Please check the Instagram URL or try with another Instagram link."
+                "Unable to fetch content. The link might be private, "
+                "deleted, or unsupported."
             )
+            return
+
+        if len(files) == 1:
+            f = files[0]
+            if f["is_video"]:
+                await message.reply_video(f["path"])
+            else:
+                await message.reply_photo(f["path"])
+        else:
+            # Carousel post — send everything together as an album.
+            media_group = []
+            for f in files:
+                if f["is_video"]:
+                    media_group.append(InputMediaVideo(f["path"]))
+                else:
+                    media_group.append(InputMediaPhoto(f["path"]))
+            # Telegram allows at most 10 items per media group.
+            for i in range(0, len(media_group), 10):
+                await message.reply_media_group(media_group[i : i + 10])
 
     except Exception as e:
-        print(e)
+        print(f"[instadl] {e}")
         await message.reply_text(
-            "An error occurred while processing the request."
+            "❌ Couldn't download that — the link might be private, "
+            "deleted, age-restricted, or Instagram is rate-limiting "
+            "right now. Please try again in a bit."
         )
 
     finally:
         if downloading_sticker:
             await downloading_sticker.delete()
+        for f in files:
+            try:
+                os.remove(f["path"])
+            except OSError:
+                pass
 
 
 @app.on_message(filters.command(["ig", "insta"]))
