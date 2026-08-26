@@ -18,7 +18,7 @@ from CRAZYHUBBOT import app
 
 # Caption + "Group" button attached under every downloaded file.
 CAPTION_TEXT = (
-    '<blockquote>🌿 ᴍᴀɪɴᴛᴀɪɴᴇᴅ ʙʏ : '
+    '<blockquote>🐬 🅜🅐🅓🅔 🅑🅨  : '
     '<a href="https://t.me/MusicGenieXBot">Music Genie X &lt;/&gt;</a></blockquote>'
 )
 GROUP_BUTTON_URL = getattr(config, "SUPPORT_CHAT", None) or "https://t.me/CrazyHubSupport"
