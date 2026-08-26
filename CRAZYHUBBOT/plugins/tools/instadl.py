@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 
+import httpx
 import yt_dlp
 from pyrogram import filters
 from pyrogram.enums import ParseMode
@@ -113,23 +114,53 @@ def _cookies_file_path():
     return COOKIES_FILE
 
 
-def _extract_entries(link: str) -> list:
-    """Blocking call — runs in a thread. Returns a list of yt-dlp info
-    dicts: one per item for a carousel post, or a single-item list for
-    a reel/photo/video post."""
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+def _run_ytdlp(link: str, use_cookies: bool):
     ytdl_opts = {
         "quiet": True,
         "no_warnings": True,
         "outtmpl": os.path.join(DOWNLOAD_DIR, "insta_%(id)s_%(autonumber)s.%(ext)s"),
         "noplaylist": False,
         "format": "best",
+        # A browser-like User-Agent avoids some 400s Instagram throws
+        # at requests that look scripted/bare.
+        "http_headers": {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            )
+        },
     }
-    cookies_path = _cookies_file_path()
-    if cookies_path:
-        ytdl_opts["cookiefile"] = cookies_path
+    if use_cookies:
+        cookies_path = _cookies_file_path()
+        if cookies_path:
+            ytdl_opts["cookiefile"] = cookies_path
     with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
-        info = ydl.extract_info(link, download=True)
+        return ydl, ydl.extract_info(link, download=True)
+
+
+def _extract_entries(link: str) -> list:
+    """Blocking call — runs in a thread. Returns a list of yt-dlp info
+    dicts: one per item for a carousel post, or a single-item list for
+    a reel/photo/video post."""
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    try:
+        ydl, info = _run_ytdlp(link, use_cookies=True)
+    except Exception as e:
+        # A 400/401/403 during info extraction can mean the configured
+        # INSTAGRAM_COOKIES session has gone stale/invalid — Instagram
+        # then rejects the request outright instead of just serving
+        # public-only data. Retry once without cookies before giving
+        # up, since anonymous access still works for public posts.
+        msg = str(e).lower()
+        if config.INSTAGRAM_COOKIES and any(
+            code in msg for code in ("400", "401", "403")
+        ):
+            print(f"[instadl] extraction with cookies failed ({e}); retrying anonymously")
+            ydl, info = _run_ytdlp(link, use_cookies=False)
+        else:
+            raise
 
     entries = info.get("entries") if info.get("entries") is not None else [info]
     results = []
@@ -163,6 +194,85 @@ def _extract_entries(link: str) -> list:
     return results
 
 
+IG_APP_ID = "936619743392459"  # Instagram's public web-client app ID
+
+
+def _cookie_jar_dict():
+    """Reads the cookies file (if any) back into a plain name->value
+    dict, for use as request cookies in the direct-scrape fallback."""
+    cookies_path = _cookies_file_path()
+    if not cookies_path:
+        return {}
+    try:
+        import http.cookiejar
+
+        jar = http.cookiejar.MozillaCookieJar(cookies_path)
+        jar.load(ignore_discard=True, ignore_expires=True)
+        return {c.name: c.value for c in jar if "instagram.com" in c.domain}
+    except Exception:
+        return {}
+
+
+async def _fallback_scrape_extract(link: str) -> list:
+    """Used only when yt-dlp fails outright (e.g. Instagram API 400s
+    it's hitting internally). Doesn't reimplement Instagram's private
+    GraphQL app — those query hashes rotate often and are themselves
+    fragile. Instead this scrapes the same og:video / og:image meta
+    tags Instagram serves on every post's embed page so it unfurls
+    correctly in WhatsApp/Telegram/Twitter link previews — Instagram
+    has strong incentive to keep those stable since the entire web's
+    link-preview tooling depends on them.
+
+    Only covers single-item posts/reels (carousels only expose their
+    first item this way) — yt-dlp stays the primary path, this is
+    strictly a backup for when that path is broken."""
+    match = re.search(r"/(?:p|reel|tv)/([A-Za-z0-9_-]+)", link)
+    if not match:
+        return []
+    shortcode = match.group(1)
+    embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "X-IG-App-ID": IG_APP_ID,
+        "Accept": "text/html,application/xhtml+xml",
+    }
+    cookies = _cookie_jar_dict()
+
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as http_client:
+        resp = await http_client.get(embed_url, headers=headers, cookies=cookies)
+        resp.raise_for_status()
+        html = resp.text
+
+    video_match = re.search(r'<meta property="og:video" content="([^"]+)"', html)
+    image_match = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+
+    if video_match:
+        media_url = video_match.group(1).replace("&amp;", "&")
+        is_video = True
+    elif image_match:
+        media_url = image_match.group(1).replace("&amp;", "&")
+        is_video = False
+    else:
+        return []
+
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    ext = "mp4" if is_video else "jpg"
+    filepath = os.path.join(DOWNLOAD_DIR, f"insta_fallback_{shortcode}.{ext}")
+
+    async with httpx.AsyncClient(timeout=60, follow_redirects=True) as http_client:
+        media_resp = await http_client.get(media_url, headers=headers)
+        media_resp.raise_for_status()
+        with open(filepath, "wb") as f:
+            f.write(media_resp.content)
+
+    return [{"path": filepath, "is_video": is_video}]
+
+
 async def _download_instagram(client, message, link: str):
     downloading_sticker = None
     files = []
@@ -176,7 +286,16 @@ async def _download_instagram(client, message, link: str):
             print(f"[instadl] couldn't send status sticker: {sticker_err}")
 
         loop = asyncio.get_event_loop()
-        files = await loop.run_in_executor(None, _extract_entries, link)
+        try:
+            files = await loop.run_in_executor(None, _extract_entries, link)
+        except Exception as ytdlp_err:
+            print(f"[instadl] yt-dlp failed ({ytdlp_err}); trying direct-scrape fallback")
+            files = await _fallback_scrape_extract(link)
+            if not files:
+                # Nothing recovered — re-raise the original yt-dlp
+                # error so the existing error-message logic below
+                # picks the right explanation (login-gated, 400, etc).
+                raise ytdlp_err
 
         if not files:
             await message.reply_text(
@@ -234,11 +353,20 @@ async def _download_instagram(client, message, link: str):
 
     except Exception as e:
         print(f"[instadl] {e}")
-        if "empty media response" in str(e).lower() or "logged-in" in str(e).lower():
+        err_msg = str(e).lower()
+        if "empty media response" in err_msg or "logged-in" in err_msg:
             err_text = (
                 "❌ Instagram is asking for a login to view this post. "
                 "The bot owner needs to set the INSTAGRAM_COOKIES "
                 "environment variable to download login-gated content."
+            )
+        elif "400" in err_msg or "401" in err_msg or "403" in err_msg:
+            err_text = (
+                "❌ Instagram rejected this request. This usually means "
+                "either the bot's INSTAGRAM_COOKIES session has expired "
+                "(re-export fresh cookies from a logged-in browser), or "
+                "yt-dlp needs updating since Instagram changes its API "
+                "often. Please try again in a bit."
             )
         else:
             err_text = (
