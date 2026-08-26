@@ -20,17 +20,23 @@ def private_panel(_):
     buttons = [
         [
             InlineKeyboardButton(
-                text=_["S_B_3"],
-                url=f"https://t.me/{app.username}?startgroup=true",
+                text=_["DASH_B_1"],
+                callback_data="dash_cb music",
             )
         ],
         [
-            InlineKeyboardButton(text=_["S_B_5"], user_id=config.OWNER_ID),
-            InlineKeyboardButton(text=_["S_B_6"], url=config.SUPPORT_CHANNEL),
+            InlineKeyboardButton(text=_["DASH_B_2"], callback_data="dash_cb group"),
+            InlineKeyboardButton(text=_["DASH_B_3"], callback_data="dash_cb ai"),
         ],
         [
-            InlineKeyboardButton(text=_["S_B_4"], callback_data="settings_back_helper"),
+            InlineKeyboardButton(
+                text=_["DASH_B_4"],
+                url=f"https://t.me/{app.username}?start=help",
+            ),
+            InlineKeyboardButton(text=_["DASH_B_5"], callback_data="dash_cb about"),
         ],
-       
+        [
+            InlineKeyboardButton(text=_["DASH_B_6"], url=config.SUPPORT_CHAT),
+        ],
     ]
     return buttons

@@ -30,7 +30,13 @@ spotipy
 tgcrypto
 telegraph
 unidecode
-yt-dlp
+# Pinned to a floor version (not exact) so a fresh install always
+# pulls something recent — Instagram changes its internal API often
+# enough that an old cached yt-dlp wheel can start throwing 400/401
+# errors on extraction until it's updated. Bumping this line also
+# invalidates build caches on platforms (like Heroku) that skip
+# re-resolving requirements.txt when its content hasn't changed.
+yt-dlp>=2025.6.9
 youtube-search
 youtube-search-python==1.6.6
 gtts
