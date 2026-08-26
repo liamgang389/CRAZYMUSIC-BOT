@@ -18,7 +18,7 @@ from CRAZYHUBBOT import app
 
 # Caption + "Group" button attached under every downloaded file.
 CAPTION_TEXT = (
-    '<blockquote>🌿 ᴍᴀɪɴᴛᴀɪɴᴇᴅ ʙʏ : '
+    '<blockquote>ᴍᴀᴅᴇ ʙʏ : '
     '<a href="https://t.me/MusicGenieXBot">Music Genie X &lt;/&gt;</a></blockquote>'
 )
 GROUP_BUTTON_URL = getattr(config, "SUPPORT_CHAT", None) or "https://t.me/CrazyHubSupport"
@@ -36,7 +36,7 @@ INSTA_LINK_REGEX = re.compile(
 
 DOWNLOAD_DIR = "downloads"
 DOWNLOADING_STICKER_ID = (
-    "CAACAgEAAx0CfD7LAgACO7xmZzb83lrLUVhxtmUaanKe0_ionAAC-gADUSkNORIJSVEUKRrhHgQ"
+    "CAACAgUAAxkBAAEGXaBqjV15XG2pQat_t4egRhUvQMySFwAC7w8AArB52VZ0CWL6_wMMQj0E"
 )
 COOKIES_FILE = os.path.join(DOWNLOAD_DIR, "instagram_cookies.txt")
 
