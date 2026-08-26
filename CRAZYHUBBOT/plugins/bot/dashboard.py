@@ -10,7 +10,6 @@ from config import BANNED_USERS
 from strings import get_string
 
 DASH_TEXT_KEYS = {
-    "music": "DASH_MUSIC_TEXT",
     "group": "DASH_GROUP_TEXT",
     "ai": "DASH_AI_TEXT",
     "about": "DASH_ABOUT_TEXT",

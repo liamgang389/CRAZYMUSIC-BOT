@@ -21,7 +21,7 @@ def private_panel(_):
         [
             InlineKeyboardButton(
                 text=_["DASH_B_1"],
-                callback_data="dash_cb music",
+                url=f"https://t.me/{app.username}?startgroup=true",
             )
         ],
         [
