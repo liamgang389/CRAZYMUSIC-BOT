@@ -4,10 +4,26 @@ import re
 
 import yt_dlp
 from pyrogram import filters
-from pyrogram.types import InputMediaPhoto, InputMediaVideo
+from pyrogram.enums import ParseMode
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    InputMediaVideo,
+)
 
 import config
 from CRAZYHUBBOT import app
+
+# Caption + "Group" button attached under every downloaded file.
+CAPTION_TEXT = (
+    '<blockquote>🌿 ᴍᴀɪɴᴛᴀɪɴᴇᴅ ʙʏ : '
+    '<a href="https://t.me/MusicGenieXBot">Music Genie X &lt;/&gt;</a></blockquote>'
+)
+GROUP_BUTTON_URL = getattr(config, "SUPPORT_CHAT", None) or "https://t.me/CrazyHubSupport"
+RESULT_MARKUP = InlineKeyboardMarkup(
+    [[InlineKeyboardButton("👥 Group", url=GROUP_BUTTON_URL)]]
+)
 
 # Matches instagram.com / instagr.am links, with or without http(s)://,
 # with or without www. — used both to auto-detect a link in any message
@@ -173,18 +189,36 @@ async def _download_instagram(client, message, link: str):
             f = files[0]
             try:
                 if f["is_video"]:
-                    await message.reply_video(f["path"])
+                    await message.reply_video(
+                        f["path"],
+                        caption=CAPTION_TEXT,
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=RESULT_MARKUP,
+                    )
                 else:
-                    await message.reply_photo(f["path"])
+                    await message.reply_photo(
+                        f["path"],
+                        caption=CAPTION_TEXT,
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=RESULT_MARKUP,
+                    )
             except Exception as send_err:
                 # Belt-and-braces: if Telegram still rejects it as the
                 # detected type (e.g. an odd container/codec it's
                 # picky about), try the other type before giving up,
                 # instead of failing the whole download.
                 print(f"[instadl] send as {'video' if f['is_video'] else 'photo'} failed ({send_err}), trying document")
-                await message.reply_document(f["path"])
+                await message.reply_document(
+                    f["path"],
+                    caption=CAPTION_TEXT,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=RESULT_MARKUP,
+                )
         else:
             # Carousel post — send everything together as an album.
+            # Media groups can't carry an inline keyboard, so the
+            # caption + Group button go on the first item's own
+            # message, sent as a normal follow-up right after.
             media_group = []
             for f in files:
                 if f["is_video"]:
@@ -194,6 +228,9 @@ async def _download_instagram(client, message, link: str):
             # Telegram allows at most 10 items per media group.
             for i in range(0, len(media_group), 10):
                 await message.reply_media_group(media_group[i : i + 10])
+            await message.reply_text(
+                CAPTION_TEXT, parse_mode=ParseMode.HTML, reply_markup=RESULT_MARKUP
+            )
 
     except Exception as e:
         print(f"[instadl] {e}")
