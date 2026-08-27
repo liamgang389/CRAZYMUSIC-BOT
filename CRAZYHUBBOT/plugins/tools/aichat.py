@@ -79,6 +79,36 @@ def _collect_all_command_names() -> set:
     return names
 
 
+BOT_DISPLAY_NAME = "Music Genie X"
+OWNER_NAME = "YTFARMAN"
+
+# LLMs don't reliably reproduce an exact fixed string every time (it
+# can get shortened/garbled turn to turn, as seen in testing — asked
+# for "YTFARMAN" and got "YTFAR", then "YTF"). Names/ownership are
+# simple facts, not something that benefits from being generated, so
+# these are answered directly in code — guaranteed correct every
+# time, and skips an API call too.
+_OWNER_QUESTION_RE = re.compile(
+    r"\b(owner|malik|maalik|developer|creator|kisne\s*banaya|who\s*made\s*you|"
+    r"who\s*created\s*you|who\s*owns\s*you|banaya\s*kisne|tumhe\s*kisne\s*banaya)\b",
+    re.IGNORECASE,
+)
+_NAME_QUESTION_RE = re.compile(
+    r"\b(tumhara\s*naam|tera\s*naam|your\s*name|what.?s\s*your\s*name)\b",
+    re.IGNORECASE,
+)
+
+
+def _deterministic_reply(text: str) -> str:
+    """Returns a fixed answer for questions with one guaranteed-right
+    answer (owner, name), or None to fall through to the AI."""
+    if _OWNER_QUESTION_RE.search(text):
+        return f"Mera owner {OWNER_NAME} hai! 🎵"
+    if _NAME_QUESTION_RE.search(text):
+        return f"Mera naam {BOT_DISPLAY_NAME} hai! 🎧"
+    return None
+
+
 _KNOWN_COMMAND_NAMES = _collect_all_command_names()
 _COMMAND_PREFIX_RE = re.compile(r"^[/!.%,@#]")
 # Skip Instagram links so this doesn't fire an extra AI reply
@@ -109,7 +139,12 @@ async def _ask_agentrouter(chat_id: int, user_text: str, user_name: str = "") ->
     history = _history_for(chat_id)
     system_prompt = SYSTEM_PROMPT
     if user_name:
-        system_prompt += f" The person you're talking to right now is named {user_name}."
+        system_prompt += (
+            f" The person you're talking to right now is named "
+            f"{user_name} — if you refer to them by name, always use "
+            f"it exactly as written here, in full, never shortened, "
+            f"abbreviated, or altered."
+        )
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_text})
@@ -180,6 +215,11 @@ async def _reply_with_ai(message: Message, user_text: str):
     if not config.AGENTROUTER_API_KEY:
         return
     if not user_text.strip():
+        return
+
+    fixed = _deterministic_reply(user_text)
+    if fixed:
+        await message.reply_text(fixed)
         return
 
     user_id = message.from_user.id
