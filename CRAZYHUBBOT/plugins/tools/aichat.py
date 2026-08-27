@@ -19,6 +19,7 @@ AI_CHAT_COOLDOWN_SECONDS or lower AI_CHAT_HISTORY_TURNS/MAX_TOKENS —
 no code changes needed.
 """
 
+import asyncio
 import glob
 import re
 import time
@@ -102,29 +103,59 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
     messages.append({"role": "user", "content": user_text})
 
     url = f"{config.AGENTROUTER_BASE_URL.rstrip('/')}/chat/completions"
+    payload = {
+        "model": config.AGENTROUTER_MODEL,
+        "messages": messages,
+        "max_tokens": config.AI_CHAT_MAX_TOKENS,
+        "temperature": 0.7,
+    }
+    headers = {
+        "Authorization": f"Bearer {config.AGENTROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    # AgentRouter has been observed intermittently returning a 401
+    # "unauthorized_client_error" that isn't a real auth failure —
+    # the exact same key/model has also gone through fine and reached
+    # real API-level responses (e.g. content moderation errors), so
+    # this looks like flaky/rate-limited behaviour on their end
+    # rather than a genuine rejection. Retrying a couple of times
+    # with a short backoff papers over that instead of failing a
+    # request that would likely have worked on the next attempt.
+    max_attempts = 3
+    last_error_body = None
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {config.AGENTROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": config.AGENTROUTER_MODEL,
-                "messages": messages,
-                "max_tokens": config.AI_CHAT_MAX_TOKENS,
-                "temperature": 0.7,
-            },
-        )
-        if resp.status_code >= 400:
-            key = config.AGENTROUTER_API_KEY or ""
-            masked = f"{key[:4]}...{key[-4:]} (len={len(key)})" if len(key) > 8 else "(too short / empty)"
-            print(
-                f"[aichat] {resp.status_code} from {url} (model={config.AGENTROUTER_MODEL}) "
-                f"— key seen by the bot: {masked}. Response body: {resp.text[:500]}"
-            )
-        resp.raise_for_status()
-        data = resp.json()
+        for attempt in range(1, max_attempts + 1):
+            resp = await client.post(url, headers=headers, json=payload)
+
+            if resp.status_code >= 400:
+                last_error_body = resp.text[:500]
+                is_flaky_unauthorized = (
+                    resp.status_code == 401
+                    and "unauthorized_client_error" in resp.text
+                )
+                if is_flaky_unauthorized and attempt < max_attempts:
+                    print(
+                        f"[aichat] attempt {attempt}/{max_attempts}: transient "
+                        f"401 unauthorized_client_error, retrying..."
+                    )
+                    await asyncio.sleep(1.5 * attempt)
+                    continue
+
+                key = config.AGENTROUTER_API_KEY or ""
+                masked = (
+                    f"{key[:4]}...{key[-4:]} (len={len(key)})"
+                    if len(key) > 8
+                    else "(too short / empty)"
+                )
+                print(
+                    f"[aichat] {resp.status_code} from {url} "
+                    f"(model={config.AGENTROUTER_MODEL}, attempt={attempt}) "
+                    f"— key seen by the bot: {masked}. Response body: {last_error_body}"
+                )
+            resp.raise_for_status()
+            data = resp.json()
+            break
 
     reply = data["choices"][0]["message"]["content"].strip()
 
