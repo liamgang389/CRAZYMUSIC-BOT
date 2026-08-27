@@ -116,12 +116,12 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
                 "temperature": 0.7,
             },
         )
-        if resp.status_code == 401:
+        if resp.status_code >= 400:
             key = config.AGENTROUTER_API_KEY or ""
             masked = f"{key[:4]}...{key[-4:]} (len={len(key)})" if len(key) > 8 else "(too short / empty)"
             print(
-                f"[aichat] 401 from {url} — key seen by the bot: {masked}. "
-                f"Response body: {resp.text[:300]}"
+                f"[aichat] {resp.status_code} from {url} (model={config.AGENTROUTER_MODEL}) "
+                f"— key seen by the bot: {masked}. Response body: {resp.text[:500]}"
             )
         resp.raise_for_status()
         data = resp.json()
@@ -131,6 +131,41 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
     history.append({"role": "user", "content": user_text})
     history.append({"role": "assistant", "content": reply})
     return reply
+
+
+async def _reply_with_ai(message: Message, user_text: str):
+    if not config.AGENTROUTER_API_KEY:
+        return
+    if not user_text.strip():
+        return
+
+    user_id = message.from_user.id
+    now = time.time()
+    last = _last_request.get(user_id, 0)
+    if now - last < config.AI_CHAT_COOLDOWN_SECONDS:
+        return
+    _last_request[user_id] = now
+
+    try:
+        reply = await _ask_agentrouter(message.chat.id, user_text.strip())
+        await message.reply_text(reply)
+    except Exception as e:
+        print(f"[aichat] request failed: {e}")
+
+
+@app.on_message(filters.command(["chat", "ai"]) & ~BANNED_USERS)
+async def ai_chat_command(client, message: Message):
+    if not config.AGENTROUTER_API_KEY:
+        await message.reply_text(
+            "❌ AI chat isn't configured yet — the bot owner needs to set "
+            "AGENTROUTER_API_KEY."
+        )
+        return
+    user_text = message.text.split(None, 1)[1] if len(message.command) > 1 else ""
+    if not user_text.strip():
+        await message.reply_text("Usage: /chat <your message>")
+        return
+    await _reply_with_ai(message, user_text)
 
 
 @app.on_message(
@@ -149,17 +184,4 @@ async def ai_chat_auto(client, message: Message):
     if _looks_like_a_command(message.text):
         return
 
-    user_id = message.from_user.id
-    now = time.time()
-    last = _last_request.get(user_id, 0)
-    if now - last < config.AI_CHAT_COOLDOWN_SECONDS:
-        return
-    _last_request[user_id] = now
-
-    try:
-        reply = await _ask_agentrouter(message.chat.id, message.text.strip())
-        await message.reply_text(reply)
-    except Exception as e:
-        print(f"[aichat] request failed: {e}")
-        # Stay quiet on failure in this no-command mode — an error
-        # reply to every random unrelated message would be noisy.
+    await _reply_with_ai(message, message.text)
