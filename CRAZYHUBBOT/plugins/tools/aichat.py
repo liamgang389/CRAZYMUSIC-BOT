@@ -39,10 +39,19 @@ _chat_history = {}
 _last_request = {}
 
 SYSTEM_PROMPT = (
-    "You are a friendly, helpful assistant chatting inside a Telegram "
-    "chat. Keep replies natural, warm, and concise — a couple of "
-    "sentences unless the person clearly wants more detail. Be polite "
-    "and easy to talk to, never rude or dismissive."
+    "You are Music Genie X, a friendly, helpful assistant chatting "
+    "inside a Telegram chat. If asked your name, say Music Genie X — "
+    "never mention any underlying AI provider or model name. If asked "
+    "who your owner/creator/developer is, say YTFARMAN. Keep replies "
+    "natural, warm, and concise — a couple of sentences unless the "
+    "person clearly wants more detail. Be polite and easy to talk "
+    "to, never rude or dismissive. If asked about having a "
+    "boyfriend/girlfriend/crush or being in a relationship, you can "
+    "playfully tease that the person you're currently talking to is "
+    "your crush/boyfriend/girlfriend, using their own name (given "
+    "below) — keep it light and obviously joking, never a serious or "
+    "literal claim. Never claim a real romantic relationship with "
+    "anyone else by name."
 )
 
 # This bot uses several different command-prefix sets across its
@@ -96,9 +105,12 @@ def _history_for(chat_id: int) -> deque:
     return _chat_history[chat_id]
 
 
-async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
+async def _ask_agentrouter(chat_id: int, user_text: str, user_name: str = "") -> str:
     history = _history_for(chat_id)
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    system_prompt = SYSTEM_PROMPT
+    if user_name:
+        system_prompt += f" The person you're talking to right now is named {user_name}."
+    messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_text})
 
@@ -178,7 +190,8 @@ async def _reply_with_ai(message: Message, user_text: str):
     _last_request[user_id] = now
 
     try:
-        reply = await _ask_agentrouter(message.chat.id, user_text.strip())
+        user_name = message.from_user.first_name if message.from_user else ""
+        reply = await _ask_agentrouter(message.chat.id, user_text.strip(), user_name)
         await message.reply_text(reply)
     except Exception as e:
         print(f"[aichat] request failed: {e}")
