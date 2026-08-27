@@ -88,11 +88,16 @@ RAPIDAPI_INSTAGRAM_KEY = getenv(
 )
 
 # ----------------------------------------------------------------
-# AI Chat (AgentRouter — OpenAI-compatible endpoint). Set your key
-# after deploying; the feature just stays silently off until you do.
+# AI Chat — OpenAI-compatible endpoint. Defaults now point to Google
+# Gemini's own OpenAI-compatibility layer (no separate SDK/format
+# needed — same request shape as before, just a different provider).
+# Get a free key at https://aistudio.google.com/apikey and set it as
+# AGENTROUTER_API_KEY. The feature stays silently off until you do.
 AGENTROUTER_API_KEY = getenv("AGENTROUTER_API_KEY", None)
-AGENTROUTER_BASE_URL = getenv("AGENTROUTER_BASE_URL", "https://agentrouter.org/v1")
-AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "deepseek-v4-flash")
+AGENTROUTER_BASE_URL = getenv(
+    "AGENTROUTER_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai"
+)
+AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gemini-2.0-flash")
 # Kept small on purpose to control API credit usage: short replies,
 # a short remembered history, and a per-user cooldown so one person
 # spamming /chat can't burn through credits fast.
