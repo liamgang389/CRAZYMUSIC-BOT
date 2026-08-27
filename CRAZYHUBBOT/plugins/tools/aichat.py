@@ -1,18 +1,25 @@
 """
-AI Chat — lets people talk to the bot naturally via /chat, or by
-replying to one of the bot's own AI replies (so it feels like an
-ongoing conversation, not just one-off commands).
+AI Chat — no command needed. Talk to the bot normally (private or
+group) and it replies, using AgentRouter (OpenAI-compatible).
 
-Built to keep API credit usage low:
+Since this now fires on every plain message instead of only on an
+explicit /chat command, credit usage will be noticeably higher in
+active groups. What's still in place to control that:
 - Replies are capped short (config.AI_CHAT_MAX_TOKENS).
 - Only the last few turns of a chat's history are sent back to the
   model (config.AI_CHAT_HISTORY_TURNS) — not the whole conversation.
 - A short per-user cooldown (config.AI_CHAT_COOLDOWN_SECONDS) stops
   one person from spamming requests and burning credits fast.
-- History is kept in memory only (resets on restart) — no growing
-  database of every message ever sent.
+- History is kept in memory only (resets on restart).
+- Command messages, and messages containing an Instagram link (so it
+  doesn't double-fire alongside the auto-download feature), are
+  skipped entirely.
+If a group turns out too chatty for this, raise
+AI_CHAT_COOLDOWN_SECONDS or lower AI_CHAT_HISTORY_TURNS/MAX_TOKENS —
+no code changes needed.
 """
 
+import glob
 import re
 import time
 from collections import deque
@@ -32,10 +39,52 @@ _last_request = {}
 
 SYSTEM_PROMPT = (
     "You are a friendly, helpful assistant chatting inside a Telegram "
-    "group. Keep replies natural, warm, and concise — a couple of "
+    "chat. Keep replies natural, warm, and concise — a couple of "
     "sentences unless the person clearly wants more detail. Be polite "
     "and easy to talk to, never rude or dismissive."
 )
+
+# This bot uses several different command-prefix sets across its
+# plugins (/, !, ., %, ,, @, #), and quite a few commands — including
+# /play itself — are also registered with a BLANK prefix, meaning
+# they trigger on the bare word with no leading symbol at all (e.g.
+# typing "play believer" works exactly like "/play believer"). A
+# prefix-character check alone can't catch those, so this scans every
+# plugin file at import time for every command name actually
+# registered anywhere in the bot, and skips this handler if the
+# message's first word matches one — keeping this self-maintaining as
+# commands get added/removed elsewhere, instead of a hardcoded list
+# that would silently go stale.
+def _collect_all_command_names() -> set:
+    names = set()
+    plugins_dir = __file__.rsplit("plugins", 1)[0] + "plugins"
+    for path in glob.glob(f"{plugins_dir}/**/*.py", recursive=True):
+        try:
+            text = open(path, encoding="utf-8", errors="ignore").read()
+        except OSError:
+            continue
+        for m in re.finditer(r"filters\.command\((\[[^\]]*\]|\"[^\"]*\"|'[^']*')", text):
+            for cmd in re.findall(r"[\"']([a-zA-Z0-9_]+)[\"']", m.group(1)):
+                names.add(cmd.lower())
+    return names
+
+
+_KNOWN_COMMAND_NAMES = _collect_all_command_names()
+_COMMAND_PREFIX_RE = re.compile(r"^[/!.%,@#]")
+# Skip Instagram links so this doesn't fire an extra AI reply
+# alongside the auto-download feature on the same message.
+_INSTA_LINK_RE = re.compile(
+    r"(?:https?://)?(?:www\.)?(?:instagram\.com|instagr\.am)/\S+", re.IGNORECASE
+)
+
+
+def _looks_like_a_command(text: str) -> bool:
+    if _COMMAND_PREFIX_RE.match(text):
+        return True
+    first_word = text.strip().split(None, 1)[0].lower() if text.strip() else ""
+    # Strip a possible @BotUsername suffix ("play@MyBot").
+    first_word = first_word.split("@", 1)[0]
+    return first_word in _KNOWN_COMMAND_NAMES
 
 
 def _history_for(chat_id: int) -> deque:
@@ -52,9 +101,10 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
     messages.extend(history)
     messages.append({"role": "user", "content": user_text})
 
+    url = f"{config.AGENTROUTER_BASE_URL.rstrip('/')}/chat/completions"
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
-            f"{config.AGENTROUTER_BASE_URL.rstrip('/')}/chat/completions",
+            url,
             headers={
                 "Authorization": f"Bearer {config.AGENTROUTER_API_KEY}",
                 "Content-Type": "application/json",
@@ -66,6 +116,13 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
                 "temperature": 0.7,
             },
         )
+        if resp.status_code == 401:
+            key = config.AGENTROUTER_API_KEY or ""
+            masked = f"{key[:4]}...{key[-4:]} (len={len(key)})" if len(key) > 8 else "(too short / empty)"
+            print(
+                f"[aichat] 401 from {url} — key seen by the bot: {masked}. "
+                f"Response body: {resp.text[:300]}"
+            )
         resp.raise_for_status()
         data = resp.json()
 
@@ -76,10 +133,21 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
     return reply
 
 
-async def _handle_chat(message: Message, user_text: str):
+@app.on_message(
+    filters.text
+    & ~filters.via_bot
+    & ~filters.edited
+    & ~filters.regex(_INSTA_LINK_RE)
+    & ~BANNED_USERS
+)
+async def ai_chat_auto(client, message: Message):
     if not config.AGENTROUTER_API_KEY:
-        # Feature not configured yet — stay quiet rather than error
-        # out on every message once auto-reply-to-bot is wired in.
+        # Feature not configured yet — stay quiet on every message
+        # rather than error out.
+        return
+    if not message.from_user or message.from_user.is_bot:
+        return
+    if _looks_like_a_command(message.text):
         return
 
     user_id = message.from_user.id
@@ -89,46 +157,10 @@ async def _handle_chat(message: Message, user_text: str):
         return
     _last_request[user_id] = now
 
-    if not user_text.strip():
-        await message.reply_text("Usage: /chat <your message>")
-        return
-
-    status = await message.reply_text("💬 ...")
     try:
-        reply = await _ask_agentrouter(message.chat.id, user_text.strip())
-        await status.edit_text(reply)
+        reply = await _ask_agentrouter(message.chat.id, message.text.strip())
+        await message.reply_text(reply)
     except Exception as e:
         print(f"[aichat] request failed: {e}")
-        await status.edit_text(
-            "❌ Couldn't reach the AI right now. Try again in a bit."
-        )
-
-
-@app.on_message(filters.command(["chat", "ai"]) & ~BANNED_USERS)
-async def ai_chat_command(client, message: Message):
-    user_text = message.text.split(None, 1)[1] if len(message.command) > 1 else ""
-    await _handle_chat(message, user_text)
-
-
-# This bot uses several different command-prefix sets across its
-# plugins (/, !, ., %, ,, @) — matching any of them here keeps this
-# broad reply-listener from ever swallowing an actual command message
-# (e.g. "/mute" sent as a reply) ahead of that command's own handler.
-_COMMAND_PREFIX_RE = re.compile(r"^[/!.%,@]")
-
-
-@app.on_message(
-    filters.reply
-    & filters.text
-    & ~filters.via_bot
-    & ~filters.regex(_COMMAND_PREFIX_RE)
-    & ~BANNED_USERS
-)
-async def ai_chat_reply(client, message: Message):
-    # Only continue the conversation if they're replying to one of
-    # THIS bot's own /chat replies — never auto-triggers on unrelated
-    # replies, so it doesn't fire (and spend credits) on every message.
-    replied = message.reply_to_message
-    if not replied or not replied.from_user or not replied.from_user.is_self:
-        return
-    await _handle_chat(message, message.text)
+        # Stay quiet on failure in this no-command mode — an error
+        # reply to every random unrelated message would be noisy.
