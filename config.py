@@ -86,6 +86,19 @@ INSTAGRAM_COOKIES = getenv("INSTAGRAM_COOKIES", None)
 RAPIDAPI_INSTAGRAM_KEY = getenv(
     "RAPIDAPI_INSTAGRAM_KEY", "63a242b19dmsha3ab5f2eb03752ep1f97a8jsndb10651254cb"
 )
+
+# ----------------------------------------------------------------
+# AI Chat (AgentRouter — OpenAI-compatible endpoint). Set your key
+# after deploying; the feature just stays silently off until you do.
+AGENTROUTER_API_KEY = getenv("AGENTROUTER_API_KEY", None)
+AGENTROUTER_BASE_URL = getenv("AGENTROUTER_BASE_URL", "https://agentrouter.org/v1")
+AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gpt-4o-mini")
+# Kept small on purpose to control API credit usage: short replies,
+# a short remembered history, and a per-user cooldown so one person
+# spamming /chat can't burn through credits fast.
+AI_CHAT_MAX_TOKENS = int(getenv("AI_CHAT_MAX_TOKENS", "220"))
+AI_CHAT_HISTORY_TURNS = int(getenv("AI_CHAT_HISTORY_TURNS", "3"))
+AI_CHAT_COOLDOWN_SECONDS = int(getenv("AI_CHAT_COOLDOWN_SECONDS", "8"))
 # ----------------------------------------------------------------
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
