@@ -97,7 +97,7 @@ AGENTROUTER_API_KEY = getenv("AGENTROUTER_API_KEY", None)
 AGENTROUTER_BASE_URL = getenv(
     "AGENTROUTER_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai"
 )
-AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gemini-2.0-flash")
+AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gemini-3.6-flash")
 # Kept small on purpose to control API credit usage: short replies,
 # a short remembered history, and a per-user cooldown so one person
 # spamming /chat can't burn through credits fast.
