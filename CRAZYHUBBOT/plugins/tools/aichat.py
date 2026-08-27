@@ -136,7 +136,6 @@ async def _ask_agentrouter(chat_id: int, user_text: str) -> str:
 @app.on_message(
     filters.text
     & ~filters.via_bot
-    & ~filters.edited
     & ~filters.regex(_INSTA_LINK_RE)
     & ~BANNED_USERS
 )
