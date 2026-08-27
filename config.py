@@ -92,7 +92,7 @@ RAPIDAPI_INSTAGRAM_KEY = getenv(
 # after deploying; the feature just stays silently off until you do.
 AGENTROUTER_API_KEY = getenv("AGENTROUTER_API_KEY", None)
 AGENTROUTER_BASE_URL = getenv("AGENTROUTER_BASE_URL", "https://agentrouter.org/v1")
-AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gpt-5.6-sol")
+AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "deepseek-v4-flash")
 # Kept small on purpose to control API credit usage: short replies,
 # a short remembered history, and a per-user cooldown so one person
 # spamming /chat can't burn through credits fast.
