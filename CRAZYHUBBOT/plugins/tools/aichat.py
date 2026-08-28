@@ -27,6 +27,7 @@ from collections import deque
 
 import httpx
 from pyrogram import filters
+from pyrogram.enums import ChatType
 from pyrogram.types import Message
 
 import config
@@ -211,7 +212,7 @@ async def _ask_agentrouter(chat_id: int, user_text: str, user_name: str = "") ->
     return reply
 
 
-async def _reply_with_ai(message: Message, user_text: str):
+async def _reply_with_ai(message: Message, user_text: str, is_triggered: bool = True):
     if not config.AGENTROUTER_API_KEY:
         return
     if not user_text.strip():
@@ -220,6 +221,16 @@ async def _reply_with_ai(message: Message, user_text: str):
     fixed = _deterministic_reply(user_text)
     if fixed:
         await message.reply_text(fixed)
+        return
+
+    # Gemini's free tier only allows 20 requests/minute for the whole
+    # bot (shared across every chat, not per-user). Auto-replying to
+    # every single group message burns through that fast — so in
+    # groups, an explicit trigger (mention or reply to the bot) is
+    # required to actually call the AI. Private chats stay
+    # command-free since they're naturally low-volume. is_triggered
+    # is always True for the explicit /chat command and /ai command.
+    if message.chat.type != ChatType.PRIVATE and not is_triggered:
         return
 
     user_id = message.from_user.id
@@ -256,7 +267,18 @@ async def ai_chat_command(client, message: Message):
     filters.text
     & ~filters.via_bot
     & ~filters.regex(_INSTA_LINK_RE)
-    & ~BANNED_USERS
+    & ~BANNED_USERS,
+    # Registered in a non-default group so this NEVER blocks any
+    # other command/handler in the bot. Pyrogram only checks the
+    # first matching handler within a group and then stops for that
+    # group (unless it explicitly calls continue_propagation()) — so
+    # a broad "matches any text" filter like this one, if left in the
+    # default group 0, would silently swallow every command handled
+    # by a plugin that happens to load after this file alphabetically
+    # (this is exactly what broke /makesticker, /stickergen, etc.).
+    # A separate group runs independently, so group 0's commands are
+    # always checked first and normally, with zero interference.
+    group=10,
 )
 async def ai_chat_auto(client, message: Message):
     if not config.AGENTROUTER_API_KEY:
@@ -268,4 +290,15 @@ async def ai_chat_auto(client, message: Message):
     if _looks_like_a_command(message.text):
         return
 
-    await _reply_with_ai(message, message.text)
+    # A group message "triggers" the AI if it's a reply to one of the
+    # bot's own messages, or @mentions the bot by username.
+    is_triggered = True
+    if message.chat.type != ChatType.PRIVATE:
+        replied = message.reply_to_message
+        is_reply_to_bot = bool(
+            replied and replied.from_user and replied.from_user.is_self
+        )
+        is_mentioned = bool(app.username) and f"@{app.username.lower()}" in message.text.lower()
+        is_triggered = is_reply_to_bot or is_mentioned
+
+    await _reply_with_ai(message, message.text, is_triggered)
