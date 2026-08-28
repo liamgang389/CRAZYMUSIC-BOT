@@ -160,13 +160,20 @@ async def makesticker_command(client, message: Message):
             if caption_text:
                 photo = _add_caption_bar(photo, caption_text)
             photo.save(out_path, "WEBP")
+            await message.reply_sticker(out_path)
         else:
             # Text captions aren't overlaid on video stickers — doing
             # that per-frame reliably needs a heavier pipeline than
             # fits here; static photo stickers support captions.
             await _video_to_sticker(src_path, out_path)
-
-        await message.reply_sticker(out_path)
+            # reply_sticker() on this Pyrogram/Bot API version doesn't
+            # reliably tag a .webm as an actual video-sticker (it can
+            # land as a plain downloadable document instead). Sending
+            # it as an animation is the reliable path — it still
+            # displays inline and autoplays like a sticker, just
+            # filed under Telegram's "GIF" media type rather than
+            # "Sticker".
+            await message.reply_animation(out_path)
         await status.delete()
     except Exception as e:
         print(f"[makesticker] failed: {e}")
