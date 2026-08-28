@@ -89,10 +89,12 @@ def _add_caption_bar(photo: Image.Image, text: str) -> Image.Image:
     return canvas
 
 
-async def _video_to_sticker(src_path: str, out_path: str):
-    """Converts any video/GIF to a Telegram video-sticker: WEBM
-    container, VP9 codec, no audio, trimmed to 3s, scaled to fit
-    inside a 512x512 box (even dimensions, since VP9 requires it)."""
+async def _video_to_animation(src_path: str, out_path: str):
+    """Converts any video/GIF into an MP4 clip suitable for
+    reply_animation() — H.264, no audio, trimmed to 3s, scaled to fit
+    inside a 512x512 box. MP4 (not WEBM) because Telegram's
+    sendAnimation only reliably renders inline for MP4/GIF; a WEBM
+    here gets delivered as a plain downloadable document instead."""
     scale_filter = (
         f"scale='if(gt(iw,ih),{MAX_SIDE},-2)':'if(gt(iw,ih),-2,{MAX_SIDE})'"
     )
@@ -102,8 +104,9 @@ async def _video_to_sticker(src_path: str, out_path: str):
         "-i", src_path,
         "-t", str(MAX_VIDEO_SECONDS),
         "-vf", scale_filter,
-        "-c:v", "libvpx-vp9",
-        "-b:v", "500k",
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         "-an",
         out_path,
     ]
@@ -148,7 +151,7 @@ async def makesticker_command(client, message: Message):
     ext = "jpg" if kind == "photo" else "mp4"
     src_path = os.path.join(STICKER_DIR, f"src_{file_id}.{ext}")
     out_path = os.path.join(
-        STICKER_DIR, f"sticker_{file_id}.{'webp' if kind == 'photo' else 'webm'}"
+        STICKER_DIR, f"sticker_{file_id}.{'webp' if kind == 'photo' else 'mp4'}"
     )
 
     try:
@@ -165,14 +168,12 @@ async def makesticker_command(client, message: Message):
             # Text captions aren't overlaid on video stickers — doing
             # that per-frame reliably needs a heavier pipeline than
             # fits here; static photo stickers support captions.
-            await _video_to_sticker(src_path, out_path)
-            # reply_sticker() on this Pyrogram/Bot API version doesn't
-            # reliably tag a .webm as an actual video-sticker (it can
-            # land as a plain downloadable document instead). Sending
-            # it as an animation is the reliable path — it still
-            # displays inline and autoplays like a sticker, just
-            # filed under Telegram's "GIF" media type rather than
-            # "Sticker".
+            await _video_to_animation(src_path, out_path)
+            # Sent via reply_animation (MP4), not reply_sticker
+            # (WEBM) — Telegram's Bot API only renders inline/autoplay
+            # for MP4/GIF through sendAnimation; a WEBM sent this way
+            # (or via sendSticker on this Pyrogram version) ends up
+            # delivered as a plain downloadable document instead.
             await message.reply_animation(out_path)
         await status.delete()
     except Exception as e:
