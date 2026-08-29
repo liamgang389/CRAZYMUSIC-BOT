@@ -101,35 +101,64 @@ def _add_caption_bar(photo: Image.Image, text: str) -> Image.Image:
     return canvas
 
 
-async def _video_to_sticker_webm(src_path: str, out_path: str):
+async def _video_to_sticker_webm(src_path: str, out_path: str, start_seconds: float = 0):
     """Converts any video/GIF into Telegram's official video-sticker
-    format: WEBM container, VP9 codec, muted, trimmed to 3s, scaled
-    to fit inside a 512x512 box. CRF-based encoding to keep the file
-    reasonably small (Telegram recommends staying under ~256KB for
-    sticker-pack items, though this isn't strictly enforced for
-    every account type)."""
+    format: WEBM container, VP9 codec, muted, trimmed to 3s starting
+    at start_seconds (so a specific moment in a longer video/reel can
+    be picked instead of always the very start), scaled to fit inside
+    a 512x512 box. CRF-based encoding to keep the file reasonably
+    small (Telegram enforces a hard ~256KB ceiling for sticker-pack
+    items)."""
     scale_filter = (
         f"scale='if(gt(iw,ih),{MAX_SIDE},-2)':'if(gt(iw,ih),-2,{MAX_SIDE})'"
     )
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", src_path,
-        "-t", str(MAX_VIDEO_SECONDS),
-        "-vf", scale_filter,
-        "-c:v", "libvpx-vp9",
-        "-crf", "34",
-        "-b:v", "0",
-        "-an",
-        out_path,
+    # Telegram enforces a hard file-size ceiling for video stickers
+    # (STICKER_VIDEO_BIG if exceeded) — how much a given source
+    # compresses at a fixed CRF depends heavily on its content
+    # (motion, detail), so a single fixed setting that worked on a
+    # simple test clip can still come out too big on a busier real
+    # video. Instead, encode and check the actual output size,
+    # stepping up compression (higher CRF, then a hard bitrate cap as
+    # a last resort) until it fits, rather than guessing one setting.
+    MAX_STICKER_BYTES = 250 * 1024  # a little under Telegram's 256KB limit
+    attempts = [
+        {"crf": "34", "b:v": "0"},
+        {"crf": "42", "b:v": "0"},
+        {"crf": "50", "b:v": "0"},
+        {"crf": "50", "b:v": "150k"},  # hard cap as a last resort
     ]
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+
+    last_stderr = b""
+    for attempt in attempts:
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(max(0, start_seconds)),
+            "-i", src_path,
+            "-t", str(MAX_VIDEO_SECONDS),
+            "-vf", scale_filter,
+            "-c:v", "libvpx-vp9",
+            "-crf", attempt["crf"],
+            "-b:v", attempt["b:v"],
+            "-an",
+            out_path,
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        last_stderr = stderr
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {stderr.decode(errors='ignore')[-500:]}")
+
+        if os.path.getsize(out_path) <= MAX_STICKER_BYTES:
+            return
+
+    raise RuntimeError(
+        f"couldn't compress under Telegram's video-sticker size limit "
+        f"even at max compression (last size: {os.path.getsize(out_path)} bytes)"
     )
-    _, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed: {stderr.decode(errors='ignore')[-500:]}")
 
 
 def _short_name_for(user_id: int) -> str:
@@ -199,6 +228,25 @@ async def _add_to_personal_pack(
     return short_name
 
 
+# Detects a start-time argument for videos: "15", "15s", "0:15",
+# "1:05" — so a specific moment in a longer video/reel can be picked
+# instead of always taking the first 3 seconds.
+_TIMESTAMP_RE = re.compile(r"^(?:(\d+):)?(\d+(?:\.\d+)?)s?$")
+
+
+def _parse_timestamp(text: str):
+    """Returns seconds (float) if text looks like a timestamp,
+    otherwise None."""
+    m = _TIMESTAMP_RE.match(text.strip())
+    if not m:
+        return None
+    minutes, seconds = m.groups()
+    total = float(seconds)
+    if minutes:
+        total += int(minutes) * 60
+    return total
+
+
 @app.on_message(filters.command(["makesticker", "mksticker", "stickergen"]))
 async def makesticker_command(client, message: Message):
     replied = message.reply_to_message
@@ -215,12 +263,21 @@ async def makesticker_command(client, message: Message):
             break
     if not source:
         await message.reply_text(
-            "Reply to a photo, video, or GIF with "
-            "/makesticker [optional emoji or caption text]."
+            "Reply to a photo, video, or GIF with /makesticker "
+            "[optional emoji or caption text].\n\n"
+            "For a video/reel, you can also pick where the 3-second "
+            "clip starts: /makesticker 0:15 grabs from the 15s mark."
         )
         return
 
     arg = message.text.split(None, 1)[1].strip() if len(message.command) > 1 else ""
+    start_seconds = 0.0
+    if kind == "video" and arg:
+        parsed = _parse_timestamp(arg)
+        if parsed is not None:
+            start_seconds = parsed
+            arg = ""  # consumed as a timestamp, not emoji/caption
+
     emoji = arg if arg and _EMOJI_ONLY_RE.match(arg) else DEFAULT_EMOJI
     caption_text = arg if arg and not _EMOJI_ONLY_RE.match(arg) else ""
 
@@ -244,7 +301,7 @@ async def makesticker_command(client, message: Message):
             photo.save(out_path, "WEBP")
             mime_type = "image/webp"
         else:
-            await _video_to_sticker_webm(src_path, out_path)
+            await _video_to_sticker_webm(src_path, out_path, start_seconds)
             mime_type = "video/webm"
 
         user_id = message.from_user.id
