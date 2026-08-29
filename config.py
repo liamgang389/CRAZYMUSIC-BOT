@@ -23,19 +23,20 @@ BOT_NAME = getenv("BOT_NAME" , "𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞")
 # ---------------------------------------------------------
 ASSUSERNAME = getenv("ASSUSERNAME" , "MREVO")
 # ---------------------------------------------------------
-# ---------- SHRUTI YOUTUBE API ----------
+# ---------- CRAZYHUB YOUTUBE API ----------
 # These MUST be named exactly this way — CRAZYHUBBOT/platforms/Youtube.py
-# reads these exact env var names directly. Get your own key from
-# @SHRUTIAPIBOT on Telegram; without it, the bot falls back to a shared
-# demo key that gets rate-limited fast since many bots share it.
-SHRUTI_API_URL = getenv("SHRUTI_API_URL", "https://api01.shrutibots.site")
-SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
+# reads these exact env var names directly. Point these at your own
+# CRAZYHUB_API deployment: CRAZYHUB_API_URL is the base URL where you're
+# hosting it (e.g. https://your-app.onrender.com), and CRAZYHUB_API_KEY
+# must match the API_KEY set in that server's own .env.
+CRAZYHUB_API_URL = getenv("CRAZYHUB_API_URL", "http://localhost:8000")
+CRAZYHUB_API_KEY = getenv("CRAZYHUB_API_KEY", None)
 
-# Set to "False" to skip the ShrutiAPI entirely and always download via
+# Set to "False" to skip CRAZYHUB_API entirely and always download via
 # cookie-free yt-dlp instead — no API key needed at all. Downloads will
 # be a bit slower (yt-dlp extracts + downloads directly from YouTube)
 # but won't depend on any external API being up or rate-limited.
-USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
+USE_CRAZYHUB_API = getenv("USE_CRAZYHUB_API", "True").strip().lower() == "true"
 
 #---------------------------------------------------------------
 #---------------------------------------------------------------
