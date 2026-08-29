@@ -23,19 +23,27 @@ BOT_NAME = getenv("BOT_NAME" , "𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞")
 # ---------------------------------------------------------
 ASSUSERNAME = getenv("ASSUSERNAME" , "MREVO")
 # ---------------------------------------------------------
-# ---------- SHRUTI YOUTUBE API ----------
+# ---------- CRAZYHUB YOUTUBE API ----------
 # These MUST be named exactly this way — CRAZYHUBBOT/platforms/Youtube.py
-# reads these exact env var names directly. Get your own key from
-# @SHRUTIAPIBOT on Telegram; without it, the bot falls back to a shared
-# demo key that gets rate-limited fast since many bots share it.
+# reads these exact env var names directly. Point these at your own
+# CRAZYHUB_API deployment: CRAZYHUB_API_URL is the base URL where you're
+# hosting it (e.g. https://your-app.onrender.com), and CRAZYHUB_API_KEY
+# must match the API_KEY set in that server's own .env.
+CRAZYHUB_API_URL = getenv("CRAZYHUB_API_URL", "http://localhost:8000")
+CRAZYHUB_API_KEY = getenv("CRAZYHUB_API_KEY", None)
+
+# Fallback API — used only if CRAZYHUB_API fails or is unreachable, before
+# finally falling back to yt-dlp. Get your own key from @SHRUTIAPIBOT on
+# Telegram; without it, the bot falls back to a shared demo key that gets
+# rate-limited fast since many bots share it.
 SHRUTI_API_URL = getenv("SHRUTI_API_URL", "https://api01.shrutibots.site")
 SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
 
-# Set to "False" to skip the ShrutiAPI entirely and always download via
+# Set to "False" to skip CRAZYHUB_API entirely and always download via
 # cookie-free yt-dlp instead — no API key needed at all. Downloads will
 # be a bit slower (yt-dlp extracts + downloads directly from YouTube)
 # but won't depend on any external API being up or rate-limited.
-USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
+USE_CRAZYHUB_API = getenv("USE_CRAZYHUB_API", "True").strip().lower() == "true"
 
 #---------------------------------------------------------------
 #---------------------------------------------------------------
@@ -86,6 +94,24 @@ INSTAGRAM_COOKIES = getenv("INSTAGRAM_COOKIES", None)
 RAPIDAPI_INSTAGRAM_KEY = getenv(
     "RAPIDAPI_INSTAGRAM_KEY", "63a242b19dmsha3ab5f2eb03752ep1f97a8jsndb10651254cb"
 )
+
+# ----------------------------------------------------------------
+# AI Chat — OpenAI-compatible endpoint. Defaults now point to Google
+# Gemini's own OpenAI-compatibility layer (no separate SDK/format
+# needed — same request shape as before, just a different provider).
+# Get a free key at https://aistudio.google.com/apikey and set it as
+# AGENTROUTER_API_KEY. The feature stays silently off until you do.
+AGENTROUTER_API_KEY = getenv("AGENTROUTER_API_KEY", None)
+AGENTROUTER_BASE_URL = getenv(
+    "AGENTROUTER_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai"
+)
+AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gemini-3.6-flash")
+# Kept small on purpose to control API credit usage: short replies,
+# a short remembered history, and a per-user cooldown so one person
+# spamming /chat can't burn through credits fast.
+AI_CHAT_MAX_TOKENS = int(getenv("AI_CHAT_MAX_TOKENS", "220"))
+AI_CHAT_HISTORY_TURNS = int(getenv("AI_CHAT_HISTORY_TURNS", "3"))
+AI_CHAT_COOLDOWN_SECONDS = int(getenv("AI_CHAT_COOLDOWN_SECONDS", "8"))
 # ----------------------------------------------------------------
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
