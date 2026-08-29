@@ -132,8 +132,8 @@ async def _video_to_sticker_webm(src_path: str, out_path: str, start_seconds: fl
     for attempt in attempts:
         cmd = [
             "ffmpeg", "-y",
-            "-ss", str(max(0, start_seconds)),
             "-i", src_path,
+            "-ss", str(max(0, start_seconds)),
             "-t", str(MAX_VIDEO_SECONDS),
             "-vf", scale_filter,
             "-c:v", "libvpx-vp9",
