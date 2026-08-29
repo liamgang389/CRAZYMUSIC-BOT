@@ -29,7 +29,7 @@ ASSUSERNAME = getenv("ASSUSERNAME" , "MREVO")
 # CRAZYHUB_API deployment: CRAZYHUB_API_URL is the base URL where you're
 # hosting it (e.g. https://your-app.onrender.com), and CRAZYHUB_API_KEY
 # must match the API_KEY set in that server's own .env.
-CRAZYHUB_API_URL = getenv("CRAZYHUB_API_URL", "http://localhost:8000")
+CRAZYHUB_API_URL = getenv("CRAZYHUB_API_URL", "https://crazhubapi-production.up.railway.app")
 CRAZYHUB_API_KEY = getenv("CRAZYHUB_API_KEY", None)
 
 # Set to "False" to skip CRAZYHUB_API entirely and always download via
