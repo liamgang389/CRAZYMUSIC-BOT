@@ -142,6 +142,7 @@ async def _video_to_sticker_webm(src_path: str, out_path: str, start_seconds: fl
             "-an",
             out_path,
         ]
+        print(f"[makesticker] running: {' '.join(cmd)}")
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -277,6 +278,7 @@ async def makesticker_command(client, message: Message):
         if parsed is not None:
             start_seconds = parsed
             arg = ""  # consumed as a timestamp, not emoji/caption
+    print(f"[makesticker] raw arg={message.text!r}, parsed start_seconds={start_seconds}")
 
     emoji = arg if arg and _EMOJI_ONLY_RE.match(arg) else DEFAULT_EMOJI
     caption_text = arg if arg and not _EMOJI_ONLY_RE.match(arg) else ""
