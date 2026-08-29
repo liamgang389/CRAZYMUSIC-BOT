@@ -16,12 +16,12 @@ from CRAZYHUBBOT.utils.database import is_on_off
 from CRAZYHUBBOT.utils.formatters import time_to_seconds
 
 try:
-    from config import USE_SHRUTI_API
+    from config import USE_CRAZYHUB_API
 except ImportError:
     # config.py on the deployed server hasn't been updated with this
     # variable yet — default to the old behavior (API first, yt-dlp
     # fallback) instead of crashing the whole bot on import.
-    USE_SHRUTI_API = True
+    USE_CRAZYHUB_API = True
 
 
 import os
@@ -36,17 +36,33 @@ def cookie_txt_file():
 
 
 # ---------------------------------------------------------------------------
-# API-based download (shrutibots) — used as the primary download method.
-# Falls back to cookie-free yt-dlp (below) if the API fails or is unreachable.
+# API-based download — two APIs are tried in order before falling back to
+# cookie-free yt-dlp:
+#   1. CRAZYHUB_API (your own deployment)
+#   2. Shruti API (shrutibots) — used only if CRAZYHUB_API fails/unreachable
 # ---------------------------------------------------------------------------
-API_URL = os.environ.get("SHRUTI_API_URL", "https://api01.shrutibots.site")
-_DEFAULT_SHRUTI_KEY = "ShrutiBots3OYSuzKa7u0PyQi3ifqT"
-API_KEY = os.environ.get("SHRUTI_API_KEY", _DEFAULT_SHRUTI_KEY)  ## Get this API KEY from Telegram bot: @SHRUTIAPIBOT
+CRAZYHUB_API_URL = os.environ.get("CRAZYHUB_API_URL", "http://localhost:8000")
+CRAZYHUB_API_KEY = os.environ.get("CRAZYHUB_API_KEY", None)  ## Must match the API_KEY set on your CRAZYHUB_API server
 
-if API_KEY == _DEFAULT_SHRUTI_KEY:
+SHRUTI_API_URL = os.environ.get("SHRUTI_API_URL", "https://api01.shrutibots.site")
+_DEFAULT_SHRUTI_KEY = "ShrutiBots3OYSuzKa7u0PyQi3ifqT"
+SHRUTI_API_KEY = os.environ.get("SHRUTI_API_KEY", _DEFAULT_SHRUTI_KEY)  ## Get this from Telegram bot: @SHRUTIAPIBOT
+
+if not CRAZYHUB_API_KEY:
     print(
-        "[ShrutiAPI] WARNING: SHRUTI_API_KEY env var is not set (or failed to load) — "
-        "using the shared default demo key. This is likely rate-limited/unreliable. "
+        "[CrazyHubAPI] WARNING: CRAZYHUB_API_KEY env var is not set — "
+        "API downloads will fail (the server always requires an api_key). "
+        "Set CRAZYHUB_API_URL/CRAZYHUB_API_KEY to match your CRAZYHUB_API deployment. "
+        "Shruti API will be used as fallback instead.",
+        flush=True,
+    )
+else:
+    print("[CrazyHubAPI] Using CRAZYHUB_API_KEY from the environment.", flush=True)
+
+if SHRUTI_API_KEY == _DEFAULT_SHRUTI_KEY:
+    print(
+        "[ShrutiAPI] WARNING: SHRUTI_API_KEY env var is not set — "
+        "using the shared default demo key, which is likely rate-limited/unreliable. "
         "Get your own key from @SHRUTIAPIBOT on Telegram and set SHRUTI_API_KEY.",
         flush=True,
     )
@@ -62,8 +78,77 @@ def _extract_video_id(link: str) -> str:
     return link
 
 
+def _watch_url_from_id(video_id: str) -> str:
+    # CRAZYHUB_API validates its "url" param as an absolute http(s) URL
+    # (scheme + host), so a bare video id is rejected — always send a
+    # full YouTube watch URL, never just the id. (Shruti's API accepts
+    # the bare video id directly, so it doesn't need this.)
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+
+async def _fetch_to_file(url: str, params: dict, file_path: str, timeout_s: int, tag: str) -> str:
+    """Shared GET-and-stream-to-disk helper used by both APIs. Returns
+    file_path on success, None on any failure (never raises)."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, params=params, timeout=aiohttp.ClientTimeout(total=timeout_s)
+            ) as resp:
+                if resp.status != 200:
+                    body_preview = (await resp.text())[:300]
+                    logging.warning(f"[{tag}] request failed: HTTP {resp.status} — {body_preview}")
+                    return None
+                with open(file_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(131072):
+                        f.write(chunk)
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            return file_path
+        return None
+    except Exception as e:
+        logging.warning(f"[{tag}] download failed: {e}")
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+        return None
+
+
+async def crazyhub_download_song(video_id: str, file_path: str) -> str:
+    return await _fetch_to_file(
+        f"{CRAZYHUB_API_URL}/download",
+        {"url": _watch_url_from_id(video_id), "type": "audio", "api_key": CRAZYHUB_API_KEY},
+        file_path, 300, "CrazyHubAPI",
+    )
+
+
+async def crazyhub_download_video(video_id: str, file_path: str) -> str:
+    return await _fetch_to_file(
+        f"{CRAZYHUB_API_URL}/download",
+        {"url": _watch_url_from_id(video_id), "type": "video", "api_key": CRAZYHUB_API_KEY},
+        file_path, 600, "CrazyHubAPI",
+    )
+
+
+async def shruti_download_song(video_id: str, file_path: str) -> str:
+    return await _fetch_to_file(
+        f"{SHRUTI_API_URL}/download",
+        {"url": video_id, "type": "audio", "api_key": SHRUTI_API_KEY},
+        file_path, 300, "ShrutiAPI",
+    )
+
+
+async def shruti_download_video(video_id: str, file_path: str) -> str:
+    return await _fetch_to_file(
+        f"{SHRUTI_API_URL}/download",
+        {"url": video_id, "type": "video", "api_key": SHRUTI_API_KEY},
+        file_path, 600, "ShrutiAPI",
+    )
+
+
 async def api_download_song(link: str) -> str:
-    """Download audio via the shrutibots API. Returns file path or None on failure."""
+    """Try CRAZYHUB_API first, then Shruti API. Returns file path or None
+    if both fail (caller then falls back to yt-dlp)."""
     video_id = _extract_video_id(link)
     if not video_id or len(video_id) < 3:
         return None
@@ -73,37 +158,17 @@ async def api_download_song(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "audio", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=300),
-            ) as resp:
-                if resp.status != 200:
-                    body_preview = (await resp.text())[:300]
-                    logging.warning(
-                        f"[shrutibots API] audio request failed: HTTP {resp.status} — {body_preview}"
-                    )
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
-        return None
-    except Exception as e:
-        logging.warning(f"[shrutibots API] audio download failed: {e}")
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
+    result = await crazyhub_download_song(video_id, file_path)
+    if result:
+        return result
+
+    logging.warning("[CrazyHubAPI] audio failed, trying Shruti API")
+    return await shruti_download_song(video_id, file_path)
 
 
 async def api_download_video(link: str) -> str:
-    """Download video via the shrutibots API. Returns file path or None on failure."""
+    """Try CRAZYHUB_API first, then Shruti API. Returns file path or None
+    if both fail (caller then falls back to yt-dlp)."""
     video_id = _extract_video_id(link)
     if not video_id or len(video_id) < 3:
         return None
@@ -113,33 +178,12 @@ async def api_download_video(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "video", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=600),
-            ) as resp:
-                if resp.status != 200:
-                    body_preview = (await resp.text())[:300]
-                    logging.warning(
-                        f"[shrutibots API] video request failed: HTTP {resp.status} — {body_preview}"
-                    )
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
-        return None
-    except Exception as e:
-        logging.warning(f"[shrutibots API] video download failed: {e}")
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
+    result = await crazyhub_download_video(video_id, file_path)
+    if result:
+        return result
+
+    logging.warning("[CrazyHubAPI] video failed, trying Shruti API")
+    return await shruti_download_video(video_id, file_path)
 
 
 # ---------------------------------------------------------------------------
@@ -679,12 +723,12 @@ class YouTubeAPI:
             return fpath
         elif video:
             if await is_on_off(1):
-                # API first (unless disabled via USE_SHRUTI_API), yt-dlp fallback
+                # API first (unless disabled via USE_CRAZYHUB_API), yt-dlp fallback
                 direct = True
-                downloaded_file = await api_download_video(link) if USE_SHRUTI_API else None
+                downloaded_file = await api_download_video(link) if USE_CRAZYHUB_API else None
                 if not downloaded_file:
-                    if USE_SHRUTI_API:
-                        logging.warning("[shrutibots API] video download failed, falling back to yt-dlp")
+                    if USE_CRAZYHUB_API:
+                        logging.warning("[CrazyHubAPI] video download failed, falling back to yt-dlp")
                     downloaded_file = await loop.run_in_executor(None, video_dl_ytdlp)
             else:
                 proc = await asyncio.create_subprocess_exec(
@@ -711,16 +755,16 @@ class YouTubeAPI:
                      print(f"File size {total_size_mb:.2f} MB exceeds the 100MB limit.")
                      return None
                    direct = True
-                   downloaded_file = await api_download_video(link) if USE_SHRUTI_API else None
+                   downloaded_file = await api_download_video(link) if USE_CRAZYHUB_API else None
                    if not downloaded_file:
                        downloaded_file = await loop.run_in_executor(None, video_dl_ytdlp)
         else:
             # Plain audio download — API first (unless disabled via
-            # USE_SHRUTI_API), yt-dlp fallback
+            # USE_CRAZYHUB_API), yt-dlp fallback
             direct = True
-            downloaded_file = await api_download_song(link) if USE_SHRUTI_API else None
+            downloaded_file = await api_download_song(link) if USE_CRAZYHUB_API else None
             if not downloaded_file:
-                if USE_SHRUTI_API:
-                    logging.warning("[shrutibots API] audio download failed, falling back to yt-dlp")
+                if USE_CRAZYHUB_API:
+                    logging.warning("[CrazyHubAPI] audio download failed, falling back to yt-dlp")
                 downloaded_file = await loop.run_in_executor(None, audio_dl_ytdlp)
         return downloaded_file, direct
