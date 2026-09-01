@@ -23,27 +23,28 @@ BOT_NAME = getenv("BOT_NAME" , "𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞")
 # ---------------------------------------------------------
 ASSUSERNAME = getenv("ASSUSERNAME" , "MREVO")
 # ---------------------------------------------------------
-# ---------- CRAZYHUB YOUTUBE API ----------
+# ---------- SHRUTI YOUTUBE API ----------
 # These MUST be named exactly this way — CRAZYHUBBOT/platforms/Youtube.py
-# reads these exact env var names directly. Point these at your own
-# CRAZYHUB_API deployment: CRAZYHUB_API_URL is the base URL where you're
-# hosting it (e.g. https://your-app.onrender.com), and CRAZYHUB_API_KEY
-# must match the API_KEY set in that server's own .env.
-CRAZYHUB_API_URL = getenv("CRAZYHUB_API_URL", "https://crazhubapi-production.up.railway.app")
-CRAZYHUB_API_KEY = getenv("CRAZYHUB_API_KEY", None)
-
-# Fallback API — used only if CRAZYHUB_API fails or is unreachable, before
-# finally falling back to yt-dlp. Get your own key from @SHRUTIAPIBOT on
-# Telegram; without it, the bot falls back to a shared demo key that gets
-# rate-limited fast since many bots share it.
+# reads these exact env var names directly. Get your own key from
+# @SHRUTIAPIBOT on Telegram; without it, the bot falls back to a shared
+# demo key that gets rate-limited fast since many bots share it.
 SHRUTI_API_URL = getenv("SHRUTI_API_URL", "https://api01.shrutibots.site")
 SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
 
-# Set to "False" to skip CRAZYHUB_API entirely and always download via
+# Set to "False" to skip the ShrutiAPI entirely and always download via
 # cookie-free yt-dlp instead — no API key needed at all. Downloads will
 # be a bit slower (yt-dlp extracts + downloads directly from YouTube)
 # but won't depend on any external API being up or rate-limited.
-USE_CRAZYHUB_API = getenv("USE_CRAZYHUB_API", "True").strip().lower() == "true"
+USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
+
+# ---------- SPARROW YOUTUBE API (fallback #2) ----------
+# These MUST be named exactly this way — CRAZYHUBBOT/platforms/Youtube.py
+# reads these exact env var names directly. Tried automatically if the
+# ShrutiAPI above fails, before finally falling back to yt-dlp. Get
+# your own key from @SpYtAPIBot on Telegram. If not set, this step is
+# silently skipped (goes straight from ShrutiAPI to yt-dlp).
+MusicSp_API_URL = getenv("MusicSp_API_URL", "https://apisparrow.site")
+MusicSp_API_KEY = getenv("MusicSp_API_KEY", None)
 
 #---------------------------------------------------------------
 #---------------------------------------------------------------
@@ -111,7 +112,7 @@ AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gemini-3.6-flash")
 # spamming /chat can't burn through credits fast.
 AI_CHAT_MAX_TOKENS = int(getenv("AI_CHAT_MAX_TOKENS", "220"))
 AI_CHAT_HISTORY_TURNS = int(getenv("AI_CHAT_HISTORY_TURNS", "3"))
-AI_CHAT_COOLDOWN_SECONDS = int(getenv("AI_CHAT_COOLDOWN_SECONDS", "8"))
+AI_CHAT_COOLDOWN_SECONDS = int(getenv("AI_CHAT_COOLDOWN_SECONDS", "3"))
 # ----------------------------------------------------------------
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
