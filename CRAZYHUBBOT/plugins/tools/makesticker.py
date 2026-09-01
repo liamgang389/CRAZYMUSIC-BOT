@@ -308,24 +308,23 @@ async def makesticker_command(client, message: Message):
 
         user_id = message.from_user.id
         user_name = message.from_user.first_name or "User"
+        # Upload for sticker-pack registration.
+        # The final chat message is sent with send_sticker() below.
         input_document = await _upload_as_document(client, user_id, out_path, mime_type)
         short_name = await _add_to_personal_pack(
             client, user_id, user_name, input_document, emoji, is_video=(kind == "video")
         )
 
-        # Send the actual sticker into the chat (not just a text link)
-        # — since it's now part of a real sticker set on Telegram's
-        # side, this renders as a proper tappable sticker bubble with
-        # the native "Add to Stickers" option, same as any sticker
-        # someone sends you.
-        await client.invoke(
-            raw.functions.messages.SendMedia(
-                peer=await client.resolve_peer(message.chat.id),
-                media=raw.types.InputMediaDocument(id=input_document),
-                message="",
-                random_id=client.rnd_id(),
-                reply_to_msg_id=message.id,
-            )
+        # Send through Pyrogram's sticker API.
+        # Do NOT use messages.SendMedia + InputMediaDocument here:
+        # that makes Telegram display the WEBM as a normal document/file.
+        # send_sticker() uploads it with Telegram's sticker media type,
+        # so it appears as a real tappable video sticker.
+        await client.send_sticker(
+            chat_id=message.chat.id,
+            sticker=out_path,
+            emoji=emoji,
+            reply_to_message_id=message.id,
         )
         await status.delete()
     except Exception as e:
