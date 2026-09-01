@@ -313,11 +313,21 @@ async def makesticker_command(client, message: Message):
             client, user_id, user_name, input_document, emoji, is_video=(kind == "video")
         )
 
-        pack_link = f"https://t.me/addstickers/{short_name}"
-        await status.edit_text(
-            f"✅ Sticker added to your pack!\n\n"
-            f"Tap here to view/add it: {pack_link}"
+        # Send the actual sticker into the chat (not just a text link)
+        # — since it's now part of a real sticker set on Telegram's
+        # side, this renders as a proper tappable sticker bubble with
+        # the native "Add to Stickers" option, same as any sticker
+        # someone sends you.
+        await client.invoke(
+            raw.functions.messages.SendMedia(
+                peer=await client.resolve_peer(message.chat.id),
+                media=raw.types.InputMediaDocument(id=input_document),
+                message="",
+                random_id=client.rnd_id(),
+                reply_to_msg_id=message.id,
+            )
         )
+        await status.delete()
     except Exception as e:
         print(f"[makesticker] failed: {e}")
         await status.edit_text(
