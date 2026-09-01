@@ -20,6 +20,8 @@ Usage: reply to a photo/video/GIF with  /makesticker [emoji or text]
 
 import asyncio
 import os
+
+import aiohttp
 import re
 import uuid
 
@@ -315,16 +317,53 @@ async def makesticker_command(client, message: Message):
             client, user_id, user_name, input_document, emoji, is_video=(kind == "video")
         )
 
-        # Send through Pyrogram's sticker API.
-        # Do NOT use messages.SendMedia + InputMediaDocument here:
-        # that makes Telegram display the WEBM as a normal document/file.
-        # send_sticker() uploads it with Telegram's sticker media type,
-        # so it appears as a real tappable video sticker.
-        await client.send_sticker(
-            chat_id=message.chat.id,
-            sticker=out_path,
-            reply_to_message_id=message.id,
-        )
+        # Pyrogram 2.0's send_sticker() only documents support for
+        # static WEBP / animated TGS; it does not reliably send WEBM
+        # video stickers. Use the official Bot API sendSticker method
+        # for WEBM so Telegram receives it as a real video sticker.
+        if kind == "video":
+            bot_token = getattr(client, "bot_token", None) or os.getenv("BOT_TOKEN")
+            if not bot_token:
+                raise RuntimeError(
+                    "BOT_TOKEN is required to send WEBM video stickers via Bot API"
+                )
+
+            api_url = f"https://api.telegram.org/bot{bot_token}/sendSticker"
+            form = aiohttp.FormData()
+            form.add_field("chat_id", str(message.chat.id))
+            form.add_field(
+                "sticker",
+                open(out_path, "rb"),
+                filename=os.path.basename(out_path),
+                content_type="video/webm",
+            )
+            if message.id:
+                form.add_field("reply_to_message_id", str(message.id))
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(api_url, data=form) as response:
+                        result = await response.json(content_type=None)
+                        if response.status != 200 or not result.get("ok"):
+                            raise RuntimeError(
+                                f"Bot API sendSticker failed: HTTP {response.status}: {result}"
+                            )
+            finally:
+                # FormData keeps the file object until the request completes.
+                for field in form._fields:
+                    value = field[2] if len(field) > 2 else None
+                    if hasattr(value, "close"):
+                        try:
+                            value.close()
+                        except Exception:
+                            pass
+        else:
+            await client.send_sticker(
+                chat_id=message.chat.id,
+                sticker=out_path,
+                reply_to_message_id=message.id,
+            )
+
         await status.delete()
     except Exception as e:
         print(f"[makesticker] failed: {e}")
