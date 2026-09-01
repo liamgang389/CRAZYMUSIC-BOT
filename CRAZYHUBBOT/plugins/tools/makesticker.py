@@ -323,7 +323,6 @@ async def makesticker_command(client, message: Message):
         await client.send_sticker(
             chat_id=message.chat.id,
             sticker=out_path,
-            emoji=emoji,
             reply_to_message_id=message.id,
         )
         await status.delete()
