@@ -44,7 +44,7 @@ USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
 # your own key from @SpYtAPIBot on Telegram. If not set, this step is
 # silently skipped (goes straight from ShrutiAPI to yt-dlp).
 MusicSp_API_URL = getenv("MusicSp_API_URL", "https://apisparrow.site")
-MusicSp_API_KEY = getenv("MusicSp_API_KEY", None)
+MusicSp_API_KEY = getenv("MusicSp_API_KEY", "sparrowXRY59Ik6njAuxxCbLMMR8dVo")
 
 #---------------------------------------------------------------
 #---------------------------------------------------------------
