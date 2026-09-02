@@ -224,14 +224,19 @@ async def _upload_as_document(
 async def _add_to_personal_pack(
     client, user_id: int, user_name: str, input_document, emoji: str,
     is_video: bool, short_name: str,
-) -> str:
+):
     """Adds input_document to the user's personal sticker pack for
     this bot, creating that pack on their first-ever sticker if it
-    doesn't exist yet. Returns the pack's short_name."""
+    doesn't exist yet. Returns the newly-added sticker's own
+    InputDocument, as returned by Telegram's sticker-set endpoints —
+    this is used (instead of the InputDocument from the earlier
+    upload step) to actually display the sticker, since it's the
+    canonical, fully-tagged reference Telegram considers part of the
+    pack."""
     sticker_item = raw.types.InputStickerSetItem(document=input_document, emoji=emoji)
 
     try:
-        await client.invoke(
+        result = await client.invoke(
             raw.functions.stickers.AddStickerToSet(
                 stickerset=raw.types.InputStickerSetShortName(short_name=short_name),
                 sticker=sticker_item,
@@ -241,7 +246,7 @@ async def _add_to_personal_pack(
         # Pack doesn't exist yet for this user — create it with this
         # sticker as the first item.
         peer = await client.resolve_peer(user_id)
-        await client.invoke(
+        result = await client.invoke(
             raw.functions.stickers.CreateStickerSet(
                 user_id=peer,
                 title=f"{user_name}'s stickers",
@@ -250,7 +255,11 @@ async def _add_to_personal_pack(
                 videos=is_video,
             )
         )
-    return short_name
+
+    new_doc = result.documents[-1]
+    return raw.types.InputDocument(
+        id=new_doc.id, access_hash=new_doc.access_hash, file_reference=new_doc.file_reference
+    )
 
 
 # Detects a start-time argument for videos: "15", "15s", "0:15",
@@ -337,20 +346,21 @@ async def makesticker_command(client, message: Message):
             client, user_id, out_path, mime_type, emoji,
             is_video=(kind == "video"), short_name=short_name,
         )
-        await _add_to_personal_pack(
+        pack_document = await _add_to_personal_pack(
             client, user_id, user_name, input_document, emoji,
             is_video=(kind == "video"), short_name=short_name,
         )
 
         # Send the actual sticker into the chat (not just a text link)
-        # — since it's now part of a real sticker set on Telegram's
-        # side, this renders as a proper tappable sticker bubble with
-        # the native "Add to Stickers" option, same as any sticker
-        # someone sends you.
+        # — using pack_document (the reference Telegram itself
+        # returned for this sticker as part of the set), so it
+        # renders as a proper tappable sticker bubble with the native
+        # "Add to Stickers" option, same as any sticker someone sends
+        # you.
         await client.invoke(
             raw.functions.messages.SendMedia(
                 peer=await client.resolve_peer(message.chat.id),
-                media=raw.types.InputMediaDocument(id=input_document),
+                media=raw.types.InputMediaDocument(id=pack_document),
                 message="",
                 random_id=client.rnd_id(),
                 reply_to_msg_id=message.id,
