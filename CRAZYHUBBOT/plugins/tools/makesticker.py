@@ -20,8 +20,6 @@ Usage: reply to a photo/video/GIF with  /makesticker [emoji or text]
 
 import asyncio
 import os
-
-import aiohttp
 import re
 import uuid
 
@@ -172,24 +170,46 @@ def _short_name_for(user_id: int) -> str:
     return f"a{user_id}_by_{app.username}"
 
 
-async def _upload_as_document(client, user_id: int, file_path: str, mime_type: str):
+async def _upload_as_document(
+    client, user_id: int, file_path: str, mime_type: str, emoji: str, is_video: bool
+):
     """Uploads a local file and registers it as a proper Document on
     Telegram's servers, returning an InputDocument (with a valid
     file_reference) that stickers.CreateStickerSet/AddStickerToSet
-    require."""
+    require.
+
+    Crucially, this tags the document with DocumentAttributeSticker
+    at upload time — without it, the document is just a plain file as
+    far as any message referencing it is concerned. Being added to a
+    sticker SET later doesn't retroactively add this attribute, so a
+    document uploaded without it still renders as a generic
+    downloadable file even after AddStickerToSet succeeds. Video
+    stickers also need DocumentAttributeVideo alongside it."""
     uploaded_file = await client.save_file(file_path)
     peer = await client.resolve_peer(user_id)
+    attributes = [
+        raw.types.DocumentAttributeFilename(file_name=os.path.basename(file_path)),
+        raw.types.DocumentAttributeSticker(
+            alt=emoji,
+            stickerset=raw.types.InputStickerSetEmpty(),
+        ),
+    ]
+    if is_video:
+        attributes.append(
+            raw.types.DocumentAttributeVideo(
+                duration=MAX_VIDEO_SECONDS,
+                w=MAX_SIDE,
+                h=MAX_SIDE,
+                supports_streaming=True,
+            )
+        )
     result = await client.invoke(
         raw.functions.messages.UploadMedia(
             peer=peer,
             media=raw.types.InputMediaUploadedDocument(
                 file=uploaded_file,
                 mime_type=mime_type,
-                attributes=[
-                    raw.types.DocumentAttributeFilename(
-                        file_name=os.path.basename(file_path)
-                    )
-                ],
+                attributes=attributes,
             ),
         )
     )
@@ -310,60 +330,27 @@ async def makesticker_command(client, message: Message):
 
         user_id = message.from_user.id
         user_name = message.from_user.first_name or "User"
-        # Upload for sticker-pack registration.
-        # The final chat message is sent with send_sticker() below.
-        input_document = await _upload_as_document(client, user_id, out_path, mime_type)
+        input_document = await _upload_as_document(
+            client, user_id, out_path, mime_type, emoji, is_video=(kind == "video")
+        )
         short_name = await _add_to_personal_pack(
             client, user_id, user_name, input_document, emoji, is_video=(kind == "video")
         )
 
-        # Pyrogram 2.0's send_sticker() only documents support for
-        # static WEBP / animated TGS; it does not reliably send WEBM
-        # video stickers. Use the official Bot API sendSticker method
-        # for WEBM so Telegram receives it as a real video sticker.
-        if kind == "video":
-            bot_token = getattr(client, "bot_token", None) or os.getenv("BOT_TOKEN")
-            if not bot_token:
-                raise RuntimeError(
-                    "BOT_TOKEN is required to send WEBM video stickers via Bot API"
-                )
-
-            api_url = f"https://api.telegram.org/bot{bot_token}/sendSticker"
-            form = aiohttp.FormData()
-            form.add_field("chat_id", str(message.chat.id))
-            form.add_field(
-                "sticker",
-                open(out_path, "rb"),
-                filename=os.path.basename(out_path),
-                content_type="video/webm",
+        # Send the actual sticker into the chat (not just a text link)
+        # — since it's now part of a real sticker set on Telegram's
+        # side, this renders as a proper tappable sticker bubble with
+        # the native "Add to Stickers" option, same as any sticker
+        # someone sends you.
+        await client.invoke(
+            raw.functions.messages.SendMedia(
+                peer=await client.resolve_peer(message.chat.id),
+                media=raw.types.InputMediaDocument(id=input_document),
+                message="",
+                random_id=client.rnd_id(),
+                reply_to_msg_id=message.id,
             )
-            if message.id:
-                form.add_field("reply_to_message_id", str(message.id))
-
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(api_url, data=form) as response:
-                        result = await response.json(content_type=None)
-                        if response.status != 200 or not result.get("ok"):
-                            raise RuntimeError(
-                                f"Bot API sendSticker failed: HTTP {response.status}: {result}"
-                            )
-            finally:
-                # FormData keeps the file object until the request completes.
-                for field in form._fields:
-                    value = field[2] if len(field) > 2 else None
-                    if hasattr(value, "close"):
-                        try:
-                            value.close()
-                        except Exception:
-                            pass
-        else:
-            await client.send_sticker(
-                chat_id=message.chat.id,
-                sticker=out_path,
-                reply_to_message_id=message.id,
-            )
-
+        )
         await status.delete()
     except Exception as e:
         print(f"[makesticker] failed: {e}")
