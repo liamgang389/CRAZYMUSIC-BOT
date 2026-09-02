@@ -171,7 +171,8 @@ def _short_name_for(user_id: int) -> str:
 
 
 async def _upload_as_document(
-    client, user_id: int, file_path: str, mime_type: str, emoji: str, is_video: bool
+    client, user_id: int, file_path: str, mime_type: str, emoji: str,
+    is_video: bool, short_name: str,
 ):
     """Uploads a local file and registers it as a proper Document on
     Telegram's servers, returning an InputDocument (with a valid
@@ -179,19 +180,20 @@ async def _upload_as_document(
     require.
 
     Crucially, this tags the document with DocumentAttributeSticker
-    at upload time — without it, the document is just a plain file as
-    far as any message referencing it is concerned. Being added to a
-    sticker SET later doesn't retroactively add this attribute, so a
-    document uploaded without it still renders as a generic
-    downloadable file even after AddStickerToSet succeeds. Video
-    stickers also need DocumentAttributeVideo alongside it."""
+    at upload time, pointing at the REAL pack (by short_name) it's
+    about to join — without it (or with a placeholder
+    InputStickerSetEmpty), the document doesn't show the native
+    "Add to Stickers" prompt when tapped, even after
+    AddStickerToSet/CreateStickerSet succeeds, since clients read
+    this attribute to know which pack to offer. Video stickers also
+    need DocumentAttributeVideo alongside it."""
     uploaded_file = await client.save_file(file_path)
     peer = await client.resolve_peer(user_id)
     attributes = [
         raw.types.DocumentAttributeFilename(file_name=os.path.basename(file_path)),
         raw.types.DocumentAttributeSticker(
             alt=emoji,
-            stickerset=raw.types.InputStickerSetEmpty(),
+            stickerset=raw.types.InputStickerSetShortName(short_name=short_name),
         ),
     ]
     if is_video:
@@ -220,12 +222,12 @@ async def _upload_as_document(
 
 
 async def _add_to_personal_pack(
-    client, user_id: int, user_name: str, input_document, emoji: str, is_video: bool
+    client, user_id: int, user_name: str, input_document, emoji: str,
+    is_video: bool, short_name: str,
 ) -> str:
     """Adds input_document to the user's personal sticker pack for
     this bot, creating that pack on their first-ever sticker if it
     doesn't exist yet. Returns the pack's short_name."""
-    short_name = _short_name_for(user_id)
     sticker_item = raw.types.InputStickerSetItem(document=input_document, emoji=emoji)
 
     try:
@@ -330,11 +332,14 @@ async def makesticker_command(client, message: Message):
 
         user_id = message.from_user.id
         user_name = message.from_user.first_name or "User"
+        short_name = _short_name_for(user_id)
         input_document = await _upload_as_document(
-            client, user_id, out_path, mime_type, emoji, is_video=(kind == "video")
+            client, user_id, out_path, mime_type, emoji,
+            is_video=(kind == "video"), short_name=short_name,
         )
-        short_name = await _add_to_personal_pack(
-            client, user_id, user_name, input_document, emoji, is_video=(kind == "video")
+        await _add_to_personal_pack(
+            client, user_id, user_name, input_document, emoji,
+            is_video=(kind == "video"), short_name=short_name,
         )
 
         # Send the actual sticker into the chat (not just a text link)
