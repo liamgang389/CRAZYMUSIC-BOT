@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import asyncio
 import os
 import re
@@ -24,7 +24,7 @@ CAPTION_TEXT = (
 )
 GROUP_BUTTON_URL = getattr(config, "SUPPORT_CHAT", None) or "https://t.me/CrazyHubSupport"
 RESULT_MARKUP = InlineKeyboardMarkup(
-    [[InlineKeyboardButton("👥 Group", url=GROUP_BUTTON_URL, style=KeyboardButtonStyle(bg_primary=True))]]
+    [[InlineKeyboardButton("👥 Group", url=GROUP_BUTTON_URL, style=ButtonStyle.PRIMARY)]]
 )
 
 # Matches instagram.com / instagr.am links, with or without http(s)://,

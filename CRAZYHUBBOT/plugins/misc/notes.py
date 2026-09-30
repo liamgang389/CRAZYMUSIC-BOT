@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 from CRAZYHUBBOT import app
 from config import BOT_USERNAME
 from pyrogram import filters
@@ -138,10 +138,10 @@ async def ClearAll_Note(client, message):
         )
     keyboard = InlineKeyboardMarkup(
         [[
-            InlineKeyboardButton(text='Delete all notes', callback_data=f'clearallnotes_clear_{owner_id}_{chat_id}', style=KeyboardButtonStyle(bg_danger=True))
+            InlineKeyboardButton(text='Delete all notes', callback_data=f'clearallnotes_clear_{owner_id}_{chat_id}', style=ButtonStyle.DANGER)
         ],
         [
-            InlineKeyboardButton(text='Cancel', callback_data=f'clearallnotes_cancel_{owner_id}', style=KeyboardButtonStyle(bg_danger=True))
+            InlineKeyboardButton(text='Cancel', callback_data=f'clearallnotes_cancel_{owner_id}', style=ButtonStyle.DANGER)
         ]]
     )
     await message.reply(
@@ -231,7 +231,7 @@ async def PrivateNoteButton(message, chat_id, NoteName):
     PrivateNoteButton = InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton(text='Click me!', url=f'http://t.me/{BOT_USERNAME}?start=note_{chat_id}_{NoteName}', style=KeyboardButtonStyle(bg_success=True))
+                InlineKeyboardButton(text='Click me!', url=f'http://t.me/{BOT_USERNAME}?start=note_{chat_id}_{NoteName}', style=ButtonStyle.SUCCESS)
             ]
         ]
     )

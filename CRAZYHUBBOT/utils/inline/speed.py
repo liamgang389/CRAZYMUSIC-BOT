@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
@@ -8,33 +8,33 @@ def speed_markup(_, chat_id):
             [
                 InlineKeyboardButton(
                     text="🕒 0.5x",
-                    callback_data=f"SpeedUP {chat_id}|0.5", style=KeyboardButtonStyle(bg_success=True)
+                    callback_data=f"SpeedUP {chat_id}|0.5", style=ButtonStyle.SUCCESS
                 ),
                 InlineKeyboardButton(
                     text="🕓 0.75x",
-                    callback_data=f"SpeedUP {chat_id}|0.75", style=KeyboardButtonStyle(bg_success=True)
+                    callback_data=f"SpeedUP {chat_id}|0.75", style=ButtonStyle.SUCCESS
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=_["P_B_4"],
-                    callback_data=f"SpeedUP {chat_id}|1.0", style=KeyboardButtonStyle(bg_success=True)
+                    callback_data=f"SpeedUP {chat_id}|1.0", style=ButtonStyle.SUCCESS
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text="🕤 1.5x",
-                    callback_data=f"SpeedUP {chat_id}|1.5", style=KeyboardButtonStyle(bg_success=True)
+                    callback_data=f"SpeedUP {chat_id}|1.5", style=ButtonStyle.SUCCESS
                 ),
                 InlineKeyboardButton(
                     text="🕛 2.0x",
-                    callback_data=f"SpeedUP {chat_id}|2.0", style=KeyboardButtonStyle(bg_success=True)
+                    callback_data=f"SpeedUP {chat_id}|2.0", style=ButtonStyle.SUCCESS
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=_["CLOSE_BUTTON"],
-                    callback_data="close", style=KeyboardButtonStyle(bg_danger=True)
+                    callback_data="close", style=ButtonStyle.DANGER
                 ),
             ],
         ]

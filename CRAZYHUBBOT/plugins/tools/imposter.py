@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import random
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -30,8 +30,8 @@ ROY = [
     [
         InlineKeyboardButton(
             text="ᗰЄ🥂💘",
-            url=f"https://t.me/Fake_SmileK", style=KeyboardButtonStyle(bg_primary=True)),
-        InlineKeyboardButton(text="αηу qυєѕтιση мєѕѕ нєяє", url=f"https://t.me/NKD_Korean_Group", style=KeyboardButtonStyle(bg_primary=True))
+            url=f"https://t.me/Fake_SmileK", style=ButtonStyle.PRIMARY),
+        InlineKeyboardButton(text="αηу qυєѕтιση мєѕѕ нєяє", url=f"https://t.me/NKD_Korean_Group", style=ButtonStyle.PRIMARY)
     ],
 ]
 

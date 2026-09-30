@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 
 from pyrogram.types import InlineKeyboardButton
 
@@ -8,17 +8,17 @@ def song_markup(_, vidid):
         [
             InlineKeyboardButton(
                 text=_["SG_B_2"],
-                callback_data=f"song_helper audio|{vidid}", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data=f"song_helper audio|{vidid}", style=ButtonStyle.PRIMARY
             ),
             InlineKeyboardButton(
                 text=_["SG_B_3"],
-                callback_data=f"song_helper video|{vidid}", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data=f"song_helper video|{vidid}", style=ButtonStyle.PRIMARY
             ),
         ],
         [
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"], callback_data="close"
-            , style=KeyboardButtonStyle(bg_danger=True)),
+            , style=ButtonStyle.DANGER),
         ],
     ]
     return buttons

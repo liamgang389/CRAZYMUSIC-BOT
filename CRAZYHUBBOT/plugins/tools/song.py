@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import os
 import future
 import asyncio
@@ -44,7 +44,7 @@ async def song_commad_group(client, message: Message, _):
             [
                 InlineKeyboardButton(
                     text=_["SG_B_1"],
-                    url=f"https://t.me/{app.username}?start=song", style=KeyboardButtonStyle(bg_success=True)
+                    url=f"https://t.me/{app.username}?start=song", style=ButtonStyle.SUCCESS
                 ),
             ]
         ]
@@ -170,17 +170,17 @@ async def song_helper_cb(client, CallbackQuery, _):
                 keyboard.row(
                     InlineKeyboardButton(
                         text=f"{form} Quality Audio = {sz}",
-                        callback_data=f"song_download {stype}|{fom}|{vidid}", style=KeyboardButtonStyle(bg_success=True)
+                        callback_data=f"song_download {stype}|{fom}|{vidid}", style=ButtonStyle.SUCCESS
                     ),
                 )
         keyboard.row(
             InlineKeyboardButton(
                 text=_["BACK_BUTTON"],
-                callback_data=f"song_back {stype}|{vidid}", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data=f"song_back {stype}|{vidid}", style=ButtonStyle.PRIMARY
             ),
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"], callback_data=f"close"
-            , style=KeyboardButtonStyle(bg_danger=True)),
+            , style=ButtonStyle.DANGER),
         )
         return await CallbackQuery.edit_message_reply_markup(
             reply_markup=keyboard
@@ -208,17 +208,17 @@ async def song_helper_cb(client, CallbackQuery, _):
             keyboard.row(
                 InlineKeyboardButton(
                     text=to,
-                    callback_data=f"song_download {stype}|{x['format_id']}|{vidid}", style=KeyboardButtonStyle(bg_success=True)
+                    callback_data=f"song_download {stype}|{x['format_id']}|{vidid}", style=ButtonStyle.SUCCESS
                 )
             )
         keyboard.row(
             InlineKeyboardButton(
                 text=_["BACK_BUTTON"],
-                callback_data=f"song_back {stype}|{vidid}", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data=f"song_back {stype}|{vidid}", style=ButtonStyle.PRIMARY
             ),
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"], callback_data=f"close"
-            , style=KeyboardButtonStyle(bg_danger=True)),
+            , style=ButtonStyle.DANGER),
         )
         return await CallbackQuery.edit_message_reply_markup(
             reply_markup=keyboard

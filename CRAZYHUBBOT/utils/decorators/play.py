@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import asyncio
 
 from pyrogram.enums import ChatMemberStatus
@@ -38,7 +38,7 @@ def PlayWrapper(command):
                     [
                         InlineKeyboardButton(
                             text="ʜᴏᴡ ᴛᴏ ғɪx ?",
-                            callback_data="DAXXmousAdmin", style=KeyboardButtonStyle(bg_primary=True)
+                            callback_data="DAXXmousAdmin", style=ButtonStyle.PRIMARY
                         ),
                     ]
                 ]
@@ -128,7 +128,7 @@ def PlayWrapper(command):
                     return await message.reply_text(
                         _["call_2"].format(
                             app.mention, userbot.id, userbot.name, userbot.username
-                        ), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text= "๏ 𝗨ɴʙᴀɴ 𝗔ssɪsᴛᴀɴᴛ ๏", callback_data=f"unban_assistant", style=KeyboardButtonStyle(bg_primary=True))]])
+                        ), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text= "๏ 𝗨ɴʙᴀɴ 𝗔ssɪsᴛᴀɴᴛ ๏", callback_data=f"unban_assistant", style=ButtonStyle.PRIMARY)]])
                     )
             except UserNotParticipant:
                 if chat_id in links:

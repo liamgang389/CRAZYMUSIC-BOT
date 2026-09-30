@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 from datetime import datetime
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
@@ -67,7 +67,7 @@ async def bugs(_, msg: Message):
                 f"<b>ʙᴜɢ ʀᴇᴩᴏʀᴛ : {bugs}</b>\n\n"
                 "<b>» ʙᴜɢ sᴜᴄᴄᴇssғᴜʟʟʏ ʀᴇᴩᴏʀᴛᴇᴅ ᴀᴛ sᴜᴩᴩᴏʀᴛ ᴄʜᴀᴛ !</b>",
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_data", style=KeyboardButtonStyle(bg_primary=True))]]
+                    [[InlineKeyboardButton("⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_data", style=ButtonStyle.PRIMARY)]]
                 ),
             )
             await app.send_photo(
@@ -76,11 +76,11 @@ async def bugs(_, msg: Message):
                 caption=f"{bug_report}",
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton("⌯ ᴠɪᴇᴡ ʙᴜɢ ⌯", url=f"{msg.link}", style=KeyboardButtonStyle(bg_primary=True))],
+                        [InlineKeyboardButton("⌯ ᴠɪᴇᴡ ʙᴜɢ ⌯", url=f"{msg.link}", style=ButtonStyle.PRIMARY)],
                         [
                             InlineKeyboardButton(
                                 "⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_send_photo"
-                            , style=KeyboardButtonStyle(bg_primary=True))
+                            , style=ButtonStyle.PRIMARY)
                         ],
                     ]
                 ),

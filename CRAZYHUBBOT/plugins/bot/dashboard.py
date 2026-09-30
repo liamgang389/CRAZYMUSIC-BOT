@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 from pyrogram import filters
 from pyrogram.enums import ParseMode
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
@@ -19,7 +19,7 @@ DASH_TEXT_KEYS = {
 
 def _dash_back_markup(_):
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton(text=_["DASH_BACK"], callback_data="dash_back", style=KeyboardButtonStyle(bg_primary=True))]]
+        [[InlineKeyboardButton(text=_["DASH_BACK"], callback_data="dash_back", style=ButtonStyle.PRIMARY)]]
     )
 
 

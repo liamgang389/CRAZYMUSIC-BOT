@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import random 
 from pyrogram import filters,Client,enums
 from CRAZYHUBBOT import app
@@ -30,7 +30,7 @@ OPEN_CHAT = ChatPermissions(
     can_pin_messages = True,
     can_invite_users = True )
     
-buttons = InlineKeyboardMarkup([[InlineKeyboardButton("๏ ᴇɴᴀʙʟᴇ ๏", callback_data="add_night", style=KeyboardButtonStyle(bg_primary=True)),InlineKeyboardButton("๏ ᴅɪsᴀʙʟᴇ ๏", callback_data="rm_night", style=KeyboardButtonStyle(bg_primary=True))]])         
+buttons = InlineKeyboardMarkup([[InlineKeyboardButton("๏ ᴇɴᴀʙʟᴇ ๏", callback_data="add_night", style=ButtonStyle.PRIMARY),InlineKeyboardButton("๏ ᴅɪsᴀʙʟᴇ ๏", callback_data="rm_night", style=ButtonStyle.PRIMARY)]])         
 
 @app.on_message(filters.command("nightmode") & filters.group)
 async def _nightmode(_, message):

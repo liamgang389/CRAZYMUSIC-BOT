@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 from typing import Union
 from CRAZYHUBBOT import app
 from CRAZYHUBBOT.utils.formatters import time_to_seconds
@@ -17,11 +17,11 @@ def queue_markup(
         [
             InlineKeyboardButton(
                 text=_["QU_B_1"],
-                callback_data=f"GetQueued {CPLAY}|{videoid}", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data=f"GetQueued {CPLAY}|{videoid}", style=ButtonStyle.PRIMARY
             ),
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
-                callback_data="close", style=KeyboardButtonStyle(bg_danger=True)
+                callback_data="close", style=ButtonStyle.DANGER
             ),
         ]
     ]
@@ -29,17 +29,17 @@ def queue_markup(
         [
             InlineKeyboardButton(
                 text=_["QU_B_2"].format(played, dur),
-                callback_data="GetTimer", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data="GetTimer", style=ButtonStyle.PRIMARY
             )
         ],
         [
             InlineKeyboardButton(
                 text=_["QU_B_1"],
-                callback_data=f"GetQueued {CPLAY}|{videoid}", style=KeyboardButtonStyle(bg_primary=True)
+                callback_data=f"GetQueued {CPLAY}|{videoid}", style=ButtonStyle.PRIMARY
             ),
             InlineKeyboardButton(
                 text=_["CLOSE_BUTTON"],
-                callback_data="close", style=KeyboardButtonStyle(bg_danger=True)
+                callback_data="close", style=ButtonStyle.DANGER
             ),
         ],
     ]
@@ -53,11 +53,11 @@ def queue_back_markup(_, CPLAY):
             [
                 InlineKeyboardButton(
                     text=_["BACK_BUTTON"],
-                    callback_data=f"queue_back_timer {CPLAY}", style=KeyboardButtonStyle(bg_primary=True)
+                    callback_data=f"queue_back_timer {CPLAY}", style=ButtonStyle.PRIMARY
                 ),
                 InlineKeyboardButton(
                     text=_["CLOSE_BUTTON"],
-                    callback_data="close", style=KeyboardButtonStyle(bg_danger=True)
+                    callback_data="close", style=ButtonStyle.DANGER
                 ),
             ]
         ]
@@ -68,11 +68,11 @@ def queue_back_markup(_, CPLAY):
 def aq_markup(_, chat_id):
     buttons = [
         [
-            InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}", style=KeyboardButtonStyle(bg_success=True)),
-            InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}", style=KeyboardButtonStyle(bg_primary=True)),
-            InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}", style=KeyboardButtonStyle(bg_primary=True)),
-            InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", style=KeyboardButtonStyle(bg_danger=True)),
+            InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}", style=ButtonStyle.SUCCESS),
+            InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", style=ButtonStyle.DANGER),
         ],
-        [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", style=KeyboardButtonStyle(bg_danger=True))],
+        [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", style=ButtonStyle.DANGER)],
     ]
     return buttons

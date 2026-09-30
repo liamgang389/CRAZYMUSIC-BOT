@@ -29,6 +29,7 @@ WORKDIR /app/
 # to an incompatible version when processing requirements.txt.
 RUN pip3 install --no-cache-dir "youtube-search-python==1.6.6"
 
+RUN pip3 uninstall -y pyrogram pyrogrammod 2>/dev/null || true
 RUN pip3 install --no-cache-dir -U -r requirements.txt
 
 CMD ["bash", "start"]

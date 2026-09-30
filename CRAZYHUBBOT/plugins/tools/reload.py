@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import asyncio
 import time
 from pyrogram import Client, filters
@@ -119,7 +119,7 @@ async def help(client: Client, message: Message):
              [
                  [
                       InlineKeyboardButton(
-                         "• нαϲкє𝚍 ву  •", url=f"https://t.me/EvoXpro", style=KeyboardButtonStyle(bg_primary=True))
+                         "• нαϲкє𝚍 ву  •", url=f"https://t.me/EvoXpro", style=ButtonStyle.PRIMARY)
                  ]
             ]
          ),

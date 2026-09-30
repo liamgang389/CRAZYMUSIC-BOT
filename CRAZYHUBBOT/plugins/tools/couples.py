@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import os 
 import random
 from datetime import datetime 
@@ -16,7 +16,7 @@ POLICE = [
     [
         InlineKeyboardButton(
             text="𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞",
-            url=f"https://t.me/Fake_SmileK", style=KeyboardButtonStyle(bg_primary=True)
+            url=f"https://t.me/Fake_SmileK", style=ButtonStyle.PRIMARY
         ),
     ],
 ]

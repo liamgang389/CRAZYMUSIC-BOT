@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 from CRAZYHUBBOT import app
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
@@ -266,8 +266,8 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 """,
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton(button_text, url=deep_link, style=KeyboardButtonStyle(bg_primary=True))],
-                        [InlineKeyboardButton(text=add_button_text, url=add_link, style=KeyboardButtonStyle(bg_primary=True))],
+                        [InlineKeyboardButton(button_text, url=deep_link, style=ButtonStyle.PRIMARY)],
+                        [InlineKeyboardButton(text=add_button_text, url=add_link, style=ButtonStyle.PRIMARY)],
                     ]
                 ),
             )

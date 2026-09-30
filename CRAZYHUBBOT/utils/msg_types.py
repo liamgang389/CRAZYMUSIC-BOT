@@ -1,4 +1,4 @@
-from pyrogram.types import KeyboardButtonStyle
+from pyrogram.enums import ButtonStyle
 import re
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from config import BOT_USERNAME
@@ -37,12 +37,12 @@ def button_markdown_parser(text):
                 buttons[-1].append(InlineKeyboardButton(
                     text=match.group(2),
                     url=match.group(3)
-                , style=KeyboardButtonStyle(bg_primary=True)))
+                , style=ButtonStyle.PRIMARY))
             else:
                 buttons.append([InlineKeyboardButton(
                     text=match.group(2),
                     url=match.group(3)
-                , style=KeyboardButtonStyle(bg_primary=True))])
+                , style=ButtonStyle.PRIMARY)])
             text_data += markdown_note[prev:match.start(1)]
             prev = match.end(1)
         # if odd, escaped -> move along
