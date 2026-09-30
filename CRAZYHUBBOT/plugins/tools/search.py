@@ -53,7 +53,7 @@ def ikb(rows=None, back=False, todo="start_back"):
 
 
 def btn(text, value, type="callback_data"):
-    return InlineKeyboardButton(text, **{type: value})
+    return InlineKeyboardButton(text, **{type: value}, style="primary")
 
 
 

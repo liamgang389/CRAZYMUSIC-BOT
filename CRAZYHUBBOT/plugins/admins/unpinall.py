@@ -47,7 +47,7 @@ async def unpin_callbacc(client, CallbackQuery):
             textt,
             reply_markup=InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin")]
+                    [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin", style="danger")]
                 ]
             )
         )
@@ -58,7 +58,7 @@ async def unpin_callbacc(client, CallbackQuery):
         "unpinned!!", 
         reply_markup=InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin")]
+                [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin", style="danger")]
             ]
         )
     )
@@ -86,8 +86,8 @@ async def unpin_command_handler(client, message):
         reply_markup=InlineKeyboardMarkup(
             [   
                 [
-                    InlineKeyboardButton(text="𝗬𝗘𝗦", callback_data="unpinall=yes"),
-                    InlineKeyboardButton(text="𝗡𝗢", callback_data="unpinall=no")
+                    InlineKeyboardButton(text="𝗬𝗘𝗦", callback_data="unpinall=yes", style="success"),
+                    InlineKeyboardButton(text="𝗡𝗢", callback_data="unpinall=no", style="danger")
                 ]
             ]
         )

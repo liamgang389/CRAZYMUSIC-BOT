@@ -170,48 +170,24 @@ def _short_name_for(user_id: int) -> str:
     return f"a{user_id}_by_{app.username}"
 
 
-async def _upload_as_document(
-    client, user_id: int, file_path: str, mime_type: str, emoji: str,
-    is_video: bool, short_name: str,
-):
+async def _upload_as_document(client, user_id: int, file_path: str, mime_type: str):
     """Uploads a local file and registers it as a proper Document on
     Telegram's servers, returning an InputDocument (with a valid
     file_reference) that stickers.CreateStickerSet/AddStickerToSet
-    require.
-
-    Crucially, this tags the document with DocumentAttributeSticker
-    at upload time, pointing at the REAL pack (by short_name) it's
-    about to join — without it (or with a placeholder
-    InputStickerSetEmpty), the document doesn't show the native
-    "Add to Stickers" prompt when tapped, even after
-    AddStickerToSet/CreateStickerSet succeeds, since clients read
-    this attribute to know which pack to offer. Video stickers also
-    need DocumentAttributeVideo alongside it."""
+    require."""
     uploaded_file = await client.save_file(file_path)
     peer = await client.resolve_peer(user_id)
-    attributes = [
-        raw.types.DocumentAttributeFilename(file_name=os.path.basename(file_path)),
-        raw.types.DocumentAttributeSticker(
-            alt=emoji,
-            stickerset=raw.types.InputStickerSetShortName(short_name=short_name),
-        ),
-    ]
-    if is_video:
-        attributes.append(
-            raw.types.DocumentAttributeVideo(
-                duration=MAX_VIDEO_SECONDS,
-                w=MAX_SIDE,
-                h=MAX_SIDE,
-                supports_streaming=True,
-            )
-        )
     result = await client.invoke(
         raw.functions.messages.UploadMedia(
             peer=peer,
             media=raw.types.InputMediaUploadedDocument(
                 file=uploaded_file,
                 mime_type=mime_type,
-                attributes=attributes,
+                attributes=[
+                    raw.types.DocumentAttributeFilename(
+                        file_name=os.path.basename(file_path)
+                    )
+                ],
             ),
         )
     )
@@ -222,21 +198,16 @@ async def _upload_as_document(
 
 
 async def _add_to_personal_pack(
-    client, user_id: int, user_name: str, input_document, emoji: str,
-    is_video: bool, short_name: str,
-):
+    client, user_id: int, user_name: str, input_document, emoji: str, is_video: bool
+) -> str:
     """Adds input_document to the user's personal sticker pack for
     this bot, creating that pack on their first-ever sticker if it
-    doesn't exist yet. Returns the newly-added sticker's own
-    InputDocument, as returned by Telegram's sticker-set endpoints —
-    this is used (instead of the InputDocument from the earlier
-    upload step) to actually display the sticker, since it's the
-    canonical, fully-tagged reference Telegram considers part of the
-    pack."""
+    doesn't exist yet. Returns the pack's short_name."""
+    short_name = _short_name_for(user_id)
     sticker_item = raw.types.InputStickerSetItem(document=input_document, emoji=emoji)
 
     try:
-        result = await client.invoke(
+        await client.invoke(
             raw.functions.stickers.AddStickerToSet(
                 stickerset=raw.types.InputStickerSetShortName(short_name=short_name),
                 sticker=sticker_item,
@@ -246,7 +217,7 @@ async def _add_to_personal_pack(
         # Pack doesn't exist yet for this user — create it with this
         # sticker as the first item.
         peer = await client.resolve_peer(user_id)
-        result = await client.invoke(
+        await client.invoke(
             raw.functions.stickers.CreateStickerSet(
                 user_id=peer,
                 title=f"{user_name}'s stickers",
@@ -255,11 +226,7 @@ async def _add_to_personal_pack(
                 videos=is_video,
             )
         )
-
-    new_doc = result.documents[-1]
-    return raw.types.InputDocument(
-        id=new_doc.id, access_hash=new_doc.access_hash, file_reference=new_doc.file_reference
-    )
+    return short_name
 
 
 # Detects a start-time argument for videos: "15", "15s", "0:15",
@@ -341,32 +308,16 @@ async def makesticker_command(client, message: Message):
 
         user_id = message.from_user.id
         user_name = message.from_user.first_name or "User"
-        short_name = _short_name_for(user_id)
-        input_document = await _upload_as_document(
-            client, user_id, out_path, mime_type, emoji,
-            is_video=(kind == "video"), short_name=short_name,
-        )
-        pack_document = await _add_to_personal_pack(
-            client, user_id, user_name, input_document, emoji,
-            is_video=(kind == "video"), short_name=short_name,
+        input_document = await _upload_as_document(client, user_id, out_path, mime_type)
+        short_name = await _add_to_personal_pack(
+            client, user_id, user_name, input_document, emoji, is_video=(kind == "video")
         )
 
-        # Send the actual sticker into the chat (not just a text link)
-        # — using pack_document (the reference Telegram itself
-        # returned for this sticker as part of the set), so it
-        # renders as a proper tappable sticker bubble with the native
-        # "Add to Stickers" option, same as any sticker someone sends
-        # you.
-        await client.invoke(
-            raw.functions.messages.SendMedia(
-                peer=await client.resolve_peer(message.chat.id),
-                media=raw.types.InputMediaDocument(id=pack_document),
-                message="",
-                random_id=client.rnd_id(),
-                reply_to_msg_id=message.id,
-            )
+        pack_link = f"https://t.me/addstickers/{short_name}"
+        await status.edit_text(
+            f"✅ Sticker added to your pack!\n\n"
+            f"Tap here to view/add it: {pack_link}"
         )
-        await status.delete()
     except Exception as e:
         print(f"[makesticker] failed: {e}")
         await status.edit_text(

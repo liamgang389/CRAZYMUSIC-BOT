@@ -37,15 +37,6 @@ SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
 # but won't depend on any external API being up or rate-limited.
 USE_SHRUTI_API = getenv("USE_SHRUTI_API", "True").strip().lower() == "true"
 
-# ---------- SPARROW YOUTUBE API (fallback #2) ----------
-# These MUST be named exactly this way — CRAZYHUBBOT/platforms/Youtube.py
-# reads these exact env var names directly. Tried automatically if the
-# ShrutiAPI above fails, before finally falling back to yt-dlp. Get
-# your own key from @SpYtAPIBot on Telegram. If not set, this step is
-# silently skipped (goes straight from ShrutiAPI to yt-dlp).
-MusicSp_API_URL = getenv("MusicSp_API_URL", "https://apisparrow.site")
-MusicSp_API_KEY = getenv("MusicSp_API_KEY", "sparrowXRY59Ik6njAuxxCbLMMR8dVo")
-
 #---------------------------------------------------------------
 #---------------------------------------------------------------
 MONGO_DB_URI = getenv("MONGO_DB_URI", None)
@@ -112,7 +103,7 @@ AGENTROUTER_MODEL = getenv("AGENTROUTER_MODEL", "gemini-3.6-flash")
 # spamming /chat can't burn through credits fast.
 AI_CHAT_MAX_TOKENS = int(getenv("AI_CHAT_MAX_TOKENS", "220"))
 AI_CHAT_HISTORY_TURNS = int(getenv("AI_CHAT_HISTORY_TURNS", "3"))
-AI_CHAT_COOLDOWN_SECONDS = int(getenv("AI_CHAT_COOLDOWN_SECONDS", "3"))
+AI_CHAT_COOLDOWN_SECONDS = int(getenv("AI_CHAT_COOLDOWN_SECONDS", "8"))
 # ----------------------------------------------------------------
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",

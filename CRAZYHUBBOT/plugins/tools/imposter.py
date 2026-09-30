@@ -29,8 +29,8 @@ ROY = [
     [
         InlineKeyboardButton(
             text="ᗰЄ🥂💘",
-            url=f"https://t.me/Fake_SmileK"),
-        InlineKeyboardButton(text="αηу qυєѕтιση мєѕѕ нєяє", url=f"https://t.me/NKD_Korean_Group")
+            url=f"https://t.me/Fake_SmileK", style="primary"),
+        InlineKeyboardButton(text="αηу qυєѕтιση мєѕѕ нєяє", url=f"https://t.me/NKD_Korean_Group", style="primary")
     ],
 ]
 

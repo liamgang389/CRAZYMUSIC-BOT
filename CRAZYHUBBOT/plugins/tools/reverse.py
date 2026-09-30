@@ -85,7 +85,7 @@ async def on_reverse(app: app, message: Message) -> None:
         time_taken=time_taken
         )
     buttons: List[List[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(STRINGS.OPEN_PAGE, url=page_url)]
+        [InlineKeyboardButton(STRINGS.OPEN_PAGE, url=page_url, style="primary")]
         ]
     await message.reply(text, disable_web_page_preview=True, reply_markup=InlineKeyboardMarkup(buttons))
     await status_msg.delete()

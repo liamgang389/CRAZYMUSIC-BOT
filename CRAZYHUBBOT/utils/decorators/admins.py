@@ -44,7 +44,7 @@ def AdminRightsCheck(mystic):
                     [
                         InlineKeyboardButton(
                             text="ʜᴏᴡ ᴛᴏ ғɪx ?",
-                            callback_data="DAXXmousAdmin",
+                            callback_data="DAXXmousAdmin", style="primary"
                         ),
                     ]
                 ]
@@ -89,7 +89,7 @@ def AdminRightsCheck(mystic):
                                     [
                                         InlineKeyboardButton(
                                             text="ᴠᴏᴛᴇ",
-                                            callback_data=f"ADMIN  UpVote|{chat_id}_{MODE}",
+                                            callback_data=f"ADMIN  UpVote|{chat_id}_{MODE}", style="primary"
                                         ),
                                     ]
                                 ]
@@ -140,7 +140,7 @@ def AdminActual(mystic):
                     [
                         InlineKeyboardButton(
                             text="ʜᴏᴡ ᴛᴏ ғɪx ?",
-                            callback_data="DAXXmousAdmin",
+                            callback_data="DAXXmousAdmin", style="primary"
                         ),
                     ]
                 ]

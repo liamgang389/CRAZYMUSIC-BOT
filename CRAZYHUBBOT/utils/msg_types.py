@@ -36,12 +36,12 @@ def button_markdown_parser(text):
                 buttons[-1].append(InlineKeyboardButton(
                     text=match.group(2),
                     url=match.group(3)
-                ))
+                , style="primary"))
             else:
                 buttons.append([InlineKeyboardButton(
                     text=match.group(2),
                     url=match.group(3)
-                )])
+                , style="primary")])
             text_data += markdown_note[prev:match.start(1)]
             prev = match.end(1)
         # if odd, escaped -> move along

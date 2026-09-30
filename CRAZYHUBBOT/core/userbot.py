@@ -55,7 +55,7 @@ class Userbot(Client):
                 LOGGER(__name__).error(
                     f"Assistant Account 1's STRING_SESSION is invalid/corrupted ({type(e).__name__}: {e}). "
                     "Generate a fresh session string using the SAME pyrogram version this bot uses "
-                    "(pyrogram==2.0.106) — a Telethon or mismatched-version session string will NOT work."
+                    "(kurigram==2.2.26) — a Telethon or mismatched-version session string will NOT work."
                 )
                 exit()
             try:
@@ -84,7 +84,7 @@ class Userbot(Client):
                 LOGGER(__name__).error(
                     f"Assistant Account 2's STRING_SESSION2 is invalid/corrupted ({type(e).__name__}: {e}). "
                     "Generate a fresh session string using the SAME pyrogram version this bot uses "
-                    "(pyrogram==2.0.106) — a Telethon or mismatched-version session string will NOT work."
+                    "(kurigram==2.2.26) — a Telethon or mismatched-version session string will NOT work."
                 )
                 exit()
             try:
@@ -113,7 +113,7 @@ class Userbot(Client):
                 LOGGER(__name__).error(
                     f"Assistant Account 3's STRING_SESSION3 is invalid/corrupted ({type(e).__name__}: {e}). "
                     "Generate a fresh session string using the SAME pyrogram version this bot uses "
-                    "(pyrogram==2.0.106) — a Telethon or mismatched-version session string will NOT work."
+                    "(kurigram==2.2.26) — a Telethon or mismatched-version session string will NOT work."
                 )
                 exit()
             try:
@@ -142,7 +142,7 @@ class Userbot(Client):
                 LOGGER(__name__).error(
                     f"Assistant Account 4's STRING_SESSION4 is invalid/corrupted ({type(e).__name__}: {e}). "
                     "Generate a fresh session string using the SAME pyrogram version this bot uses "
-                    "(pyrogram==2.0.106) — a Telethon or mismatched-version session string will NOT work."
+                    "(kurigram==2.2.26) — a Telethon or mismatched-version session string will NOT work."
                 )
                 exit()
             try:
@@ -171,7 +171,7 @@ class Userbot(Client):
                 LOGGER(__name__).error(
                     f"Assistant Account 5's STRING_SESSION5 is invalid/corrupted ({type(e).__name__}: {e}). "
                     "Generate a fresh session string using the SAME pyrogram version this bot uses "
-                    "(pyrogram==2.0.106) — a Telethon or mismatched-version session string will NOT work."
+                    "(kurigram==2.2.26) — a Telethon or mismatched-version session string will NOT work."
                 )
                 exit()
             try:

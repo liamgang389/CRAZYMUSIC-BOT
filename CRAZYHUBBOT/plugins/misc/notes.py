@@ -137,10 +137,10 @@ async def ClearAll_Note(client, message):
         )
     keyboard = InlineKeyboardMarkup(
         [[
-            InlineKeyboardButton(text='Delete all notes', callback_data=f'clearallnotes_clear_{owner_id}_{chat_id}')
+            InlineKeyboardButton(text='Delete all notes', callback_data=f'clearallnotes_clear_{owner_id}_{chat_id}', style="danger")
         ],
         [
-            InlineKeyboardButton(text='Cancel', callback_data=f'clearallnotes_cancel_{owner_id}')
+            InlineKeyboardButton(text='Cancel', callback_data=f'clearallnotes_cancel_{owner_id}', style="danger")
         ]]
     )
     await message.reply(
@@ -230,7 +230,7 @@ async def PrivateNoteButton(message, chat_id, NoteName):
     PrivateNoteButton = InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton(text='Click me!', url=f'http://t.me/{BOT_USERNAME}?start=note_{chat_id}_{NoteName}')
+                InlineKeyboardButton(text='Click me!', url=f'http://t.me/{BOT_USERNAME}?start=note_{chat_id}_{NoteName}', style="success")
             ]
         ]
     )

@@ -111,7 +111,7 @@ class TeleAPI:
                         [
                             InlineKeyboardButton(
                                 text="ᴄᴀɴᴄᴇʟ",
-                                callback_data="stop_downloading",
+                                callback_data="stop_downloading", style="primary"
                             ),
                         ]
                     ]

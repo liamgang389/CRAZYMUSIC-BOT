@@ -8,7 +8,7 @@ from pyrogram.types import *
 from CRAZYHUBBOT import app
 
 button = InlineKeyboardMarkup([[
-            InlineKeyboardButton("⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_data")
+            InlineKeyboardButton("⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_data", style="primary")
                               ]])
 
 

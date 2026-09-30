@@ -54,25 +54,6 @@ else:
     print("[ShrutiAPI] Using your own SHRUTI_API_KEY from the environment.", flush=True)
 
 
-# ---------------------------------------------------------------------------
-# Second API-based download (Sparrow) — tried as a fallback if the
-# ShrutiBots API fails, before finally falling back to yt-dlp.
-# ---------------------------------------------------------------------------
-SPARROW_API_URL = os.environ.get("MusicSp_API_URL", "https://apisparrow.site")
-_DEFAULT_SPARROW_KEY = "Enter Your Api"
-SPARROW_API_KEY = os.environ.get("MusicSp_API_KEY", _DEFAULT_SPARROW_KEY)  ## Get this API KEY from Telegram bot: @SpYtAPIBot
-
-if SPARROW_API_KEY == _DEFAULT_SPARROW_KEY:
-    print(
-        "[SparrowAPI] WARNING: MusicSp_API_KEY env var is not set — this fallback "
-        "API will be skipped until you get a key from @SpYtAPIBot on Telegram and "
-        "set MusicSp_API_KEY.",
-        flush=True,
-    )
-else:
-    print("[SparrowAPI] Using your own MusicSp_API_KEY from the environment.", flush=True)
-
-
 def _extract_video_id(link: str) -> str:
     if "v=" in link:
         return link.split("v=")[-1].split("&")[0]
@@ -153,86 +134,6 @@ async def api_download_video(link: str) -> str:
         return None
     except Exception as e:
         logging.warning(f"[shrutibots API] video download failed: {e}")
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
-
-
-async def sparrow_download_song(link: str) -> str:
-    """Download audio via the Sparrow API (fallback #2). Returns file path or None on failure."""
-    video_id = _extract_video_id(link)
-    if not video_id or len(video_id) < 3:
-        return None
-
-    os.makedirs("downloads", exist_ok=True)
-    file_path = os.path.join("downloads", f"{video_id}.mp3")
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        return file_path
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{SPARROW_API_URL}/download",
-                params={"url": video_id, "type": "audio", "api_key": SPARROW_API_KEY},
-                timeout=aiohttp.ClientTimeout(total=300),
-            ) as resp:
-                if resp.status != 200:
-                    body_preview = (await resp.text())[:300]
-                    logging.warning(
-                        f"[SparrowAPI] audio request failed: HTTP {resp.status} — {body_preview}"
-                    )
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
-        return None
-    except Exception as e:
-        logging.warning(f"[SparrowAPI] audio download failed: {e}")
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
-
-
-async def sparrow_download_video(link: str) -> str:
-    """Download video via the Sparrow API (fallback #2). Returns file path or None on failure."""
-    video_id = _extract_video_id(link)
-    if not video_id or len(video_id) < 3:
-        return None
-
-    os.makedirs("downloads", exist_ok=True)
-    file_path = os.path.join("downloads", f"{video_id}.mp4")
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        return file_path
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{SPARROW_API_URL}/download",
-                params={"url": video_id, "type": "video", "api_key": SPARROW_API_KEY},
-                timeout=aiohttp.ClientTimeout(total=600),
-            ) as resp:
-                if resp.status != 200:
-                    body_preview = (await resp.text())[:300]
-                    logging.warning(
-                        f"[SparrowAPI] video request failed: HTTP {resp.status} — {body_preview}"
-                    )
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
-        return None
-    except Exception as e:
-        logging.warning(f"[SparrowAPI] video download failed: {e}")
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
@@ -778,16 +679,12 @@ class YouTubeAPI:
             return fpath
         elif video:
             if await is_on_off(1):
-                # API first (unless disabled via USE_SHRUTI_API), then
-                # Sparrow API, then yt-dlp as the final fallback.
+                # API first (unless disabled via USE_SHRUTI_API), yt-dlp fallback
                 direct = True
                 downloaded_file = await api_download_video(link) if USE_SHRUTI_API else None
                 if not downloaded_file:
                     if USE_SHRUTI_API:
-                        logging.warning("[shrutibots API] video download failed, trying SparrowAPI")
-                    downloaded_file = await sparrow_download_video(link)
-                if not downloaded_file:
-                    logging.warning("[SparrowAPI] video download failed, falling back to yt-dlp")
+                        logging.warning("[shrutibots API] video download failed, falling back to yt-dlp")
                     downloaded_file = await loop.run_in_executor(None, video_dl_ytdlp)
             else:
                 proc = await asyncio.create_subprocess_exec(
@@ -816,19 +713,14 @@ class YouTubeAPI:
                    direct = True
                    downloaded_file = await api_download_video(link) if USE_SHRUTI_API else None
                    if not downloaded_file:
-                       downloaded_file = await sparrow_download_video(link)
-                   if not downloaded_file:
                        downloaded_file = await loop.run_in_executor(None, video_dl_ytdlp)
         else:
             # Plain audio download — API first (unless disabled via
-            # USE_SHRUTI_API), then Sparrow API, then yt-dlp fallback
+            # USE_SHRUTI_API), yt-dlp fallback
             direct = True
             downloaded_file = await api_download_song(link) if USE_SHRUTI_API else None
             if not downloaded_file:
                 if USE_SHRUTI_API:
-                    logging.warning("[shrutibots API] audio download failed, trying SparrowAPI")
-                downloaded_file = await sparrow_download_song(link)
-            if not downloaded_file:
-                logging.warning("[SparrowAPI] audio download failed, falling back to yt-dlp")
+                    logging.warning("[shrutibots API] audio download failed, falling back to yt-dlp")
                 downloaded_file = await loop.run_in_executor(None, audio_dl_ytdlp)
         return downloaded_file, direct

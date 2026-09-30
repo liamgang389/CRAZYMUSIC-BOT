@@ -12,7 +12,7 @@ DEFAULT_REACTION_LIST = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉
 async def send_log(message: str, chat_id: int, chat_title: str, message_id: int):
     try:
         channel_button = InlineKeyboardMarkup([[
-            InlineKeyboardButton(text="Go to Message", url=f"https://t.me/c/{str(chat_id)[4:]}/{message_id}")
+            InlineKeyboardButton(text="Go to Message", url=f"https://t.me/c/{str(chat_id)[4:]}/{message_id}", style="primary")
         ]])
         await app.send_message(
             LOGGER_ID,

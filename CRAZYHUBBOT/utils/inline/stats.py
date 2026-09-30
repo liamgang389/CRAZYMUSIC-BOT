@@ -5,17 +5,17 @@ def stats_buttons(_, status):
     not_sudo = [
         InlineKeyboardButton(
             text=_["SA_B_1"],
-            callback_data="TopOverall",
+            callback_data="TopOverall", style="primary"
         )
     ]
     sudo = [
         InlineKeyboardButton(
             text=_["SA_B_2"],
-            callback_data="bot_stats_sudo",
+            callback_data="bot_stats_sudo", style="primary"
         ),
         InlineKeyboardButton(
             text=_["SA_B_3"],
-            callback_data="TopOverall",
+            callback_data="TopOverall", style="primary"
         ),
     ]
     upl = InlineKeyboardMarkup(
@@ -24,7 +24,7 @@ def stats_buttons(_, status):
             [
                 InlineKeyboardButton(
                     text=_["CLOSE_BUTTON"],
-                    callback_data="close",
+                    callback_data="close", style="danger"
                 ),
             ],
         ]
@@ -38,11 +38,11 @@ def back_stats_buttons(_):
             [
                 InlineKeyboardButton(
                     text=_["BACK_BUTTON"],
-                    callback_data="stats_back",
+                    callback_data="stats_back", style="primary"
                 ),
                 InlineKeyboardButton(
                     text=_["CLOSE_BUTTON"],
-                    callback_data="close",
+                    callback_data="close", style="danger"
                 ),
             ],
         ]

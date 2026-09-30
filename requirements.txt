@@ -21,7 +21,7 @@ future==0.18.3
 search_engine_parser
 py-tgcalls==0.9.7
 pykeyboard
-pyrogram==2.0.106
+kurigram==2.2.26
 python-dotenv
 pyyaml==6.0.1
 requests

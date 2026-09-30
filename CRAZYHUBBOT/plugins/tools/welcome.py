@@ -265,8 +265,8 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 """,
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton(button_text, url=deep_link)],
-                        [InlineKeyboardButton(text=add_button_text, url=add_link)],
+                        [InlineKeyboardButton(button_text, url=deep_link, style="primary")],
+                        [InlineKeyboardButton(text=add_button_text, url=add_link, style="primary")],
                     ]
                 ),
             )

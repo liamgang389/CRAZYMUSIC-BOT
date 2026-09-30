@@ -23,7 +23,7 @@ CAPTION_TEXT = (
 )
 GROUP_BUTTON_URL = getattr(config, "SUPPORT_CHAT", None) or "https://t.me/CrazyHubSupport"
 RESULT_MARKUP = InlineKeyboardMarkup(
-    [[InlineKeyboardButton("👥 Group", url=GROUP_BUTTON_URL)]]
+    [[InlineKeyboardButton("👥 Group", url=GROUP_BUTTON_URL, style="primary")]]
 )
 
 # Matches instagram.com / instagr.am links, with or without http(s)://,

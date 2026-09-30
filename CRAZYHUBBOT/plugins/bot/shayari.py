@@ -78,7 +78,7 @@ async def _send_shayari(message: Message):
                 [
                     InlineKeyboardButton(
                         "✨𝚂𝚄𝙿𝙿𝙾𝚁𝚃✨", url=SUPPORT_LINK
-                    )
+                    , style="primary")
                 ]
             ]
         ),
