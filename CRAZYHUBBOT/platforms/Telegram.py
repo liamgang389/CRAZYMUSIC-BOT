@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 import asyncio
 import os
 import time
@@ -111,7 +112,7 @@ class TeleAPI:
                         [
                             InlineKeyboardButton(
                                 text="ᴄᴀɴᴄᴇʟ",
-                                callback_data="stop_downloading", style="primary"
+                                callback_data="stop_downloading", style=KeyboardButtonStyle(bg_primary=True)
                             ),
                         ]
                     ]

@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from typing import BinaryIO, Dict, List
 import time, os, httpx
 from uuid import uuid4
@@ -85,7 +86,7 @@ async def on_reverse(app: app, message: Message) -> None:
         time_taken=time_taken
         )
     buttons: List[List[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(STRINGS.OPEN_PAGE, url=page_url, style="primary")]
+        [InlineKeyboardButton(STRINGS.OPEN_PAGE, url=page_url, style=KeyboardButtonStyle(bg_primary=True))]
         ]
     await message.reply(text, disable_web_page_preview=True, reply_markup=InlineKeyboardMarkup(buttons))
     await status_msg.delete()

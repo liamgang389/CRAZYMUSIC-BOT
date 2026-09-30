@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from traceback import format_exc
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from search_engine_parser.core.engines.google import Search as GoogleSearch
@@ -53,7 +54,7 @@ def ikb(rows=None, back=False, todo="start_back"):
 
 
 def btn(text, value, type="callback_data"):
-    return InlineKeyboardButton(text, **{type: value}, style="primary")
+    return InlineKeyboardButton(text, **{type: value}, style=KeyboardButtonStyle(bg_primary=True))
 
 
 

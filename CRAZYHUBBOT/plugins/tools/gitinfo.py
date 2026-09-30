@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 import asyncio, os, time, aiohttp
 import aiohttp
 from pyrogram import filters
@@ -61,7 +62,7 @@ async def github(_, message):
                 pass
 
     # Create an inline keyboard with a close button
-    close_button = InlineKeyboardButton("Close", callback_data="close", style="danger")
+    close_button = InlineKeyboardButton("Close", callback_data="close", style=KeyboardButtonStyle(bg_danger=True))
     inline_keyboard = InlineKeyboardMarkup([[close_button]])
 
     # Send the message with the inline keyboard

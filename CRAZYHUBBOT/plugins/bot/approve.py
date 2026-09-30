@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from CRAZYHUBBOT import app
 from os import environ
 from config import BOT_USERNAME
@@ -104,7 +105,7 @@ async def autoapprove(client: app, message: ChatJoinRequest):
                 [
                     [
                         InlineKeyboardButton(
-                            " ๏ ᴀᴅᴅ ᴍᴇ ʙᴀʙʏ ๏ ", url=f"https://t.me/{BOT_USERNAME}?startgroup=true", style="primary")
+                            " ๏ ᴀᴅᴅ ᴍᴇ ʙᴀʙʏ ๏ ", url=f"https://t.me/{BOT_USERNAME}?startgroup=true", style=KeyboardButtonStyle(bg_primary=True))
                     ]
                 ]
             ),

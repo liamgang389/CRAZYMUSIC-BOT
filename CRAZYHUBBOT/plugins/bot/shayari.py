@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 
 from pyrogram import Client, filters
 import requests
@@ -78,7 +79,7 @@ async def _send_shayari(message: Message):
                 [
                     InlineKeyboardButton(
                         "✨𝚂𝚄𝙿𝙿𝙾𝚁𝚃✨", url=SUPPORT_LINK
-                    , style="primary")
+                    , style=KeyboardButtonStyle(bg_primary=True))
                 ]
             ]
         ),

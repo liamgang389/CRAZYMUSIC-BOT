@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 import os
 import re
 import subprocess
@@ -82,7 +83,7 @@ async def executor(client: app, message: Message):
                 [
                     InlineKeyboardButton(
                         text="⏳",
-                        callback_data=f"runtime {t2-t1} Seconds", style="primary"
+                        callback_data=f"runtime {t2-t1} Seconds", style=KeyboardButtonStyle(bg_primary=True)
                     )
                 ]
             ]
@@ -102,11 +103,11 @@ async def executor(client: app, message: Message):
                 [
                     InlineKeyboardButton(
                         text="⏳",
-                        callback_data=f"runtime {round(t2-t1, 3)} Seconds", style="primary"
+                        callback_data=f"runtime {round(t2-t1, 3)} Seconds", style=KeyboardButtonStyle(bg_primary=True)
                     ),
                     InlineKeyboardButton(
                         text="🗑",
-                        callback_data=f"forceclose abc|{message.from_user.id}", style="primary"
+                        callback_data=f"forceclose abc|{message.from_user.id}", style=KeyboardButtonStyle(bg_primary=True)
                     ),
                 ]
             ]

@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from pyrogram import  filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -9,41 +10,41 @@ async def style_buttons(c, m, cb=False):
     text = m.text.split(' ',1)[1]
     buttons = [
         [
-            InlineKeyboardButton("𝚃𝚢𝚙𝚎𝚠𝚛𝚒𝚝𝚎𝚛", callback_data="style+typewriter", style="primary"),
-            InlineKeyboardButton("𝕆𝕦𝕥𝕝𝕚𝕟𝕖", callback_data="style+outline", style="primary"),
-            InlineKeyboardButton("𝐒𝐞𝐫𝐢𝐟", callback_data="style+serif", style="primary"),
+            InlineKeyboardButton("𝚃𝚢𝚙𝚎𝚠𝚛𝚒𝚝𝚎𝚛", callback_data="style+typewriter", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝕆𝕦𝕥𝕝𝕚𝕟𝕖", callback_data="style+outline", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝐒𝐞𝐫𝐢𝐟", callback_data="style+serif", style=KeyboardButtonStyle(bg_primary=True)),
         ],
         [
-            InlineKeyboardButton("𝑺𝒆𝒓𝒊𝒇", callback_data="style+bold_cool", style="primary"),
-            InlineKeyboardButton("𝑆𝑒𝑟𝑖𝑓", callback_data="style+cool", style="primary"),
-            InlineKeyboardButton("Sᴍᴀʟʟ Cᴀᴘs", callback_data="style+small_cap", style="primary"),
+            InlineKeyboardButton("𝑺𝒆𝒓𝒊𝒇", callback_data="style+bold_cool", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝑆𝑒𝑟𝑖𝑓", callback_data="style+cool", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("Sᴍᴀʟʟ Cᴀᴘs", callback_data="style+small_cap", style=KeyboardButtonStyle(bg_primary=True)),
         ],
         [
-            InlineKeyboardButton("𝓈𝒸𝓇𝒾𝓅𝓉", callback_data="style+script", style="primary"),
-            InlineKeyboardButton("𝓼𝓬𝓻𝓲𝓹𝓽", callback_data="style+script_bolt", style="primary"),
-            InlineKeyboardButton("ᵗⁱⁿʸ", callback_data="style+tiny", style="primary"),
+            InlineKeyboardButton("𝓈𝒸𝓇𝒾𝓅𝓉", callback_data="style+script", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝓼𝓬𝓻𝓲𝓹𝓽", callback_data="style+script_bolt", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("ᵗⁱⁿʸ", callback_data="style+tiny", style=KeyboardButtonStyle(bg_primary=True)),
         ],
         [
-            InlineKeyboardButton("ᑕOᗰIᑕ", callback_data="style+comic", style="primary"),
-            InlineKeyboardButton("𝗦𝗮𝗻𝘀", callback_data="style+sans", style="primary"),
-            InlineKeyboardButton("𝙎𝙖𝙣𝙨", callback_data="style+slant_sans", style="primary"),
+            InlineKeyboardButton("ᑕOᗰIᑕ", callback_data="style+comic", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝗦𝗮𝗻𝘀", callback_data="style+sans", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝙎𝙖𝙣𝙨", callback_data="style+slant_sans", style=KeyboardButtonStyle(bg_primary=True)),
         ],
         [
-            InlineKeyboardButton("𝘚𝘢𝘯𝘴", callback_data="style+slant", style="primary"),
-            InlineKeyboardButton("𝖲𝖺𝗇𝗌", callback_data="style+sim", style="primary"),
-            InlineKeyboardButton("Ⓒ︎Ⓘ︎Ⓡ︎Ⓒ︎Ⓛ︎Ⓔ︎Ⓢ︎", callback_data="style+circles", style="primary"),
+            InlineKeyboardButton("𝘚𝘢𝘯𝘴", callback_data="style+slant", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝖲𝖺𝗇𝗌", callback_data="style+sim", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("Ⓒ︎Ⓘ︎Ⓡ︎Ⓒ︎Ⓛ︎Ⓔ︎Ⓢ︎", callback_data="style+circles", style=KeyboardButtonStyle(bg_primary=True)),
         ],
         [
-            InlineKeyboardButton("🅒︎🅘︎🅡︎🅒︎🅛︎🅔︎🅢︎", callback_data="style+circle_dark", style="primary"),
-            InlineKeyboardButton("𝔊𝔬𝔱𝔥𝔦𝔠", callback_data="style+gothic", style="primary"),
-            InlineKeyboardButton("𝕲𝖔𝖙𝖍𝖎𝖈", callback_data="style+gothic_bolt", style="primary"),
+            InlineKeyboardButton("🅒︎🅘︎🅡︎🅒︎🅛︎🅔︎🅢︎", callback_data="style+circle_dark", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝔊𝔬𝔱𝔥𝔦𝔠", callback_data="style+gothic", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("𝕲𝖔𝖙𝖍𝖎𝖈", callback_data="style+gothic_bolt", style=KeyboardButtonStyle(bg_primary=True)),
         ],
         [
-            InlineKeyboardButton("C͜͡l͜͡o͜͡u͜͡d͜͡s͜͡", callback_data="style+cloud", style="primary"),
-            InlineKeyboardButton("H̆̈ă̈p̆̈p̆̈y̆̈", callback_data="style+happy", style="primary"),
-            InlineKeyboardButton("S̑̈ȃ̈d̑̈", callback_data="style+sad", style="primary"),
+            InlineKeyboardButton("C͜͡l͜͡o͜͡u͜͡d͜͡s͜͡", callback_data="style+cloud", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("H̆̈ă̈p̆̈p̆̈y̆̈", callback_data="style+happy", style=KeyboardButtonStyle(bg_primary=True)),
+            InlineKeyboardButton("S̑̈ȃ̈d̑̈", callback_data="style+sad", style=KeyboardButtonStyle(bg_primary=True)),
         ],
-        [InlineKeyboardButton ("ᴄʟᴏsᴇ",callback_data="close_reply", style="primary"),InlineKeyboardButton ("ɴᴇxᴛ ➻", callback_data="nxt", style="primary")],
+        [InlineKeyboardButton ("ᴄʟᴏsᴇ",callback_data="close_reply", style=KeyboardButtonStyle(bg_primary=True)),InlineKeyboardButton ("ɴᴇxᴛ ➻", callback_data="nxt", style=KeyboardButtonStyle(bg_primary=True))],
     ]
     if not cb:
         await m.reply_text(
@@ -59,44 +60,44 @@ async def nxt(c, m):
     if m.data == "nxt":
         buttons = [
             [
-                InlineKeyboardButton("🇸 🇵 🇪 🇨 🇮 🇦 🇱 ", callback_data="style+special", style="primary"),
-                InlineKeyboardButton("🅂🅀🅄🄰🅁🄴🅂", callback_data="style+squares", style="primary"),
+                InlineKeyboardButton("🇸 🇵 🇪 🇨 🇮 🇦 🇱 ", callback_data="style+special", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("🅂🅀🅄🄰🅁🄴🅂", callback_data="style+squares", style=KeyboardButtonStyle(bg_primary=True)),
                 InlineKeyboardButton(
                     "🆂︎🆀︎🆄︎🅰︎🆁︎🅴︎🆂︎", callback_data="style+squares_bold"
-                , style="primary"),
+                , style=KeyboardButtonStyle(bg_primary=True)),
             ],
             [
-                InlineKeyboardButton("ꪖꪀᦔꪖꪶꪊᥴ𝓲ꪖ", callback_data="style+andalucia", style="primary"),
-                InlineKeyboardButton("爪卂几ᘜ卂", callback_data="style+manga", style="primary"),
-                InlineKeyboardButton("S̾t̾i̾n̾k̾y̾", callback_data="style+stinky", style="primary"),
+                InlineKeyboardButton("ꪖꪀᦔꪖꪶꪊᥴ𝓲ꪖ", callback_data="style+andalucia", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("爪卂几ᘜ卂", callback_data="style+manga", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("S̾t̾i̾n̾k̾y̾", callback_data="style+stinky", style=KeyboardButtonStyle(bg_primary=True)),
             ],
             [
                 InlineKeyboardButton(
                     "B̥ͦu̥ͦb̥ͦb̥ͦl̥ͦe̥ͦs̥ͦ", callback_data="style+bubbles"
-                , style="primary"),
+                , style=KeyboardButtonStyle(bg_primary=True)),
                 InlineKeyboardButton(
                     "U͟n͟d͟e͟r͟l͟i͟n͟e͟", callback_data="style+underline"
-                , style="primary"),
-                InlineKeyboardButton("꒒ꍏꀷꌩꌃꀎꁅ", callback_data="style+ladybug", style="primary"),
+                , style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("꒒ꍏꀷꌩꌃꀎꁅ", callback_data="style+ladybug", style=KeyboardButtonStyle(bg_primary=True)),
             ],
             [
-                InlineKeyboardButton("R҉a҉y҉s҉", callback_data="style+rays", style="primary"),
-                InlineKeyboardButton("B҈i҈r҈d҈s҈", callback_data="style+birds", style="primary"),
-                InlineKeyboardButton("S̸l̸a̸s̸h̸", callback_data="style+slash", style="primary"),
+                InlineKeyboardButton("R҉a҉y҉s҉", callback_data="style+rays", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("B҈i҈r҈d҈s҈", callback_data="style+birds", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("S̸l̸a̸s̸h̸", callback_data="style+slash", style=KeyboardButtonStyle(bg_primary=True)),
             ],
             [
-                InlineKeyboardButton("s⃠t⃠o⃠p⃠", callback_data="style+stop", style="danger"),
+                InlineKeyboardButton("s⃠t⃠o⃠p⃠", callback_data="style+stop", style=KeyboardButtonStyle(bg_danger=True)),
                 InlineKeyboardButton(
                     "S̺͆k̺͆y̺͆l̺͆i̺͆n̺͆e̺͆", callback_data="style+skyline"
-                , style="primary"),
-                InlineKeyboardButton("A͎r͎r͎o͎w͎s͎", callback_data="style+arrows", style="primary"),
+                , style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("A͎r͎r͎o͎w͎s͎", callback_data="style+arrows", style=KeyboardButtonStyle(bg_primary=True)),
             ],
             [
-                InlineKeyboardButton("ዪሀክቿነ", callback_data="style+qvnes", style="primary"),
-                InlineKeyboardButton("S̶t̶r̶i̶k̶e̶", callback_data="style+strike", style="primary"),
-                InlineKeyboardButton("F༙r༙o༙z༙e༙n༙", callback_data="style+frozen", style="primary"),
+                InlineKeyboardButton("ዪሀክቿነ", callback_data="style+qvnes", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("S̶t̶r̶i̶k̶e̶", callback_data="style+strike", style=KeyboardButtonStyle(bg_primary=True)),
+                InlineKeyboardButton("F༙r༙o༙z༙e༙n༙", callback_data="style+frozen", style=KeyboardButtonStyle(bg_primary=True)),
             ],
-            [InlineKeyboardButton ("ᴄʟᴏsᴇ",callback_data="close_reply", style="primary"),InlineKeyboardButton ("ʙᴀᴄᴋ", callback_data="nxt+0", style="primary")],
+            [InlineKeyboardButton ("ᴄʟᴏsᴇ",callback_data="close_reply", style=KeyboardButtonStyle(bg_primary=True)),InlineKeyboardButton ("ʙᴀᴄᴋ", callback_data="nxt+0", style=KeyboardButtonStyle(bg_primary=True))],
         ]
         await m.answer()
         await m.message.edit_reply_markup(InlineKeyboardMarkup(buttons))

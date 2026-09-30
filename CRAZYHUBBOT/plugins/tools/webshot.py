@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from base64 import b64decode
 from inspect import getfullargspec
 from io import BytesIO
@@ -8,7 +9,7 @@ from pyrogram.types import *
 from CRAZYHUBBOT import app
 
 button = InlineKeyboardMarkup([[
-            InlineKeyboardButton("⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_data", style="primary")
+            InlineKeyboardButton("⌯ ᴄʟᴏsᴇ ⌯", callback_data="close_data", style=KeyboardButtonStyle(bg_primary=True))
                               ]])
 
 

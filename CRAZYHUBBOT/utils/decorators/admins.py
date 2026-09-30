@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -44,7 +45,7 @@ def AdminRightsCheck(mystic):
                     [
                         InlineKeyboardButton(
                             text="ʜᴏᴡ ᴛᴏ ғɪx ?",
-                            callback_data="DAXXmousAdmin", style="primary"
+                            callback_data="DAXXmousAdmin", style=KeyboardButtonStyle(bg_primary=True)
                         ),
                     ]
                 ]
@@ -89,7 +90,7 @@ def AdminRightsCheck(mystic):
                                     [
                                         InlineKeyboardButton(
                                             text="ᴠᴏᴛᴇ",
-                                            callback_data=f"ADMIN  UpVote|{chat_id}_{MODE}", style="primary"
+                                            callback_data=f"ADMIN  UpVote|{chat_id}_{MODE}", style=KeyboardButtonStyle(bg_primary=True)
                                         ),
                                     ]
                                 ]
@@ -140,7 +141,7 @@ def AdminActual(mystic):
                     [
                         InlineKeyboardButton(
                             text="ʜᴏᴡ ᴛᴏ ғɪx ?",
-                            callback_data="DAXXmousAdmin", style="primary"
+                            callback_data="DAXXmousAdmin", style=KeyboardButtonStyle(bg_primary=True)
                         ),
                     ]
                 ]

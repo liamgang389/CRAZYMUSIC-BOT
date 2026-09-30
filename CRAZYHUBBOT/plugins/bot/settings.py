@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.errors import MessageNotModified
@@ -333,10 +334,10 @@ async def authusers_mar(client, CallbackQuery, _):
                     [
                         InlineKeyboardButton(
                             text=_["BACK_BUTTON"], callback_data=f"AU"
-                        , style="primary"),
+                        , style=KeyboardButtonStyle(bg_primary=True)),
                         InlineKeyboardButton(
                             text=_["CLOSE_BUTTON"],
-                            callback_data=f"close", style="danger"
+                            callback_data=f"close", style=KeyboardButtonStyle(bg_danger=True)
                         ),
                     ]
                 ]

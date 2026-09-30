@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 import asyncio
 from telegram import CallbackQuery
 from pyrogram import filters
@@ -133,7 +134,7 @@ async def del_back_playlist(client, CallbackQuery, _):
                     [
                         InlineKeyboardButton(
                             text=f"👍 {get_upvotes}",
-                            callback_data=f"ADMIN  UpVote|{chat_id}_{counter}", style="primary"
+                            callback_data=f"ADMIN  UpVote|{chat_id}_{counter}", style=KeyboardButtonStyle(bg_primary=True)
                         )
                     ]
                 ]

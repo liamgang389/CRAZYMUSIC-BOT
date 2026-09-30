@@ -1,3 +1,4 @@
+from pyrogram.types import KeyboardButtonStyle
 from pyrogram import filters, enums
 from pyrogram.types import (
     InlineKeyboardButton,
@@ -47,7 +48,7 @@ async def unpin_callbacc(client, CallbackQuery):
             textt,
             reply_markup=InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin", style="danger")]
+                    [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin", style=KeyboardButtonStyle(bg_danger=True))]
                 ]
             )
         )
@@ -58,7 +59,7 @@ async def unpin_callbacc(client, CallbackQuery):
         "unpinned!!", 
         reply_markup=InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin", style="danger")]
+                [InlineKeyboardButton(text="Delete", callback_data="delete_btn=admin", style=KeyboardButtonStyle(bg_danger=True))]
             ]
         )
     )
@@ -86,8 +87,8 @@ async def unpin_command_handler(client, message):
         reply_markup=InlineKeyboardMarkup(
             [   
                 [
-                    InlineKeyboardButton(text="𝗬𝗘𝗦", callback_data="unpinall=yes", style="success"),
-                    InlineKeyboardButton(text="𝗡𝗢", callback_data="unpinall=no", style="danger")
+                    InlineKeyboardButton(text="𝗬𝗘𝗦", callback_data="unpinall=yes", style=KeyboardButtonStyle(bg_success=True)),
+                    InlineKeyboardButton(text="𝗡𝗢", callback_data="unpinall=no", style=KeyboardButtonStyle(bg_danger=True))
                 ]
             ]
         )
