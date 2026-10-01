@@ -1,36 +1,34 @@
-FROM python:3.13-slim
+FROM nikolaik/python-nodejs:python3.10-nodejs19
 
-# --- System dependencies -----------------------------------------------
-# ffmpeg   -> required for thumbnails, format conversion, splitting large files
-# nodejs   -> required by yt-dlp for YouTube signature/JS-challenge solving.
-#             Debian's apt-provided nodejs is too old (v20) for current
-#             yt-dlp, which needs Node >= 22 — so we install it from
-#             NodeSource's setup script instead of `apt install nodejs npm`.
-# gcc/etc  -> needed to build the tgcrypto C extension
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    build-essential \
-    git \
-    curl \
-    ca-certificates \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# Ensure Python's stdout/stderr are never buffered — without this, print()
+# statements can be delayed or missing from streamed container logs.
+ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
+# Debian "buster" reached end-of-life and was moved off the normal mirrors,
+# so apt-get update 404s against deb.debian.org. Point it at
+# archive.debian.org instead, and temporarily skip the extra nodesource/yarn
+# repo files (broken/unsigned) since we only need ffmpeg from Debian itself.
+RUN mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak \
+    && sed -i \
+       -e 's|deb.debian.org|archive.debian.org|g' \
+       -e 's|security.debian.org|archive.debian.org|g' \
+       /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && mv /etc/apt/sources.list.d.bak /etc/apt/sources.list.d
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . /app/
+WORKDIR /app/
 
-COPY . .
+# Python 3.10 is in use here, so youtubesearchpython must be pinned to a
+# version that still supports it (2.3.0+ requires Python 3.11+, and
+# 2.5.0+ requires Python 3.12+). Installing this pin BEFORE requirements.txt
+# means pip will see it's already satisfied and won't try to upgrade it
+# to an incompatible version when processing requirements.txt.
+RUN pip3 install --no-cache-dir "youtube-search-python==1.6.6"
 
-# Persistent-ish local storage for the sqlite fallback DB / logs / temp
-# downloads (see README for why you should point DB_DSN at a real MySQL
-# instance instead of relying on this for anything you can't lose on redeploy).
-RUN mkdir -p /app/logs /app/downloads /app/temp
+RUN pip3 install --no-cache-dir -U -r requirements.txt
 
-# main.py is launched as `python src/main.py` (not `cd src && python main.py`):
-# Python auto-adds the script's own directory (src/) to sys.path, which is
-# what lets `from config import ...` etc. resolve. Keep it this way.
-CMD ["python", "src/main.py"]
+CMD ["bash", "start"]
