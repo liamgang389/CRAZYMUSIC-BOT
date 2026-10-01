@@ -13,7 +13,7 @@ from pytgcalls.exceptions import (
 )
 from pytgcalls.types import Update
 from pytgcalls.types.input_stream import AudioPiped, AudioVideoPiped
-from pytgcalls.types.input_stream.quality import HighQualityAudio, HighQualityVideo
+from pytgcalls.types.input_stream.quality import MediumQualityAudio, MediumQualityVideo
 from pytgcalls.types.stream import StreamAudioEnded
 
 import config
@@ -193,14 +193,14 @@ class Call(PyTgCalls):
         stream = (
             AudioVideoPiped(
                 out,
-                audio_parameters=HighQualityAudio(),
-                video_parameters=HighQualityVideo(),
+                audio_parameters=MediumQualityAudio(),
+                video_parameters=MediumQualityVideo(),
                 additional_ffmpeg_parameters=f"-ss {played} -to {duration}",
             )
             if playing[0]["streamtype"] == "video"
             else AudioPiped(
                 out,
-                audio_parameters=HighQualityAudio(),
+                audio_parameters=MediumQualityAudio(),
                 additional_ffmpeg_parameters=f"-ss {played} -to {duration}",
             )
         )
@@ -244,11 +244,11 @@ class Call(PyTgCalls):
         if video:
             stream = AudioVideoPiped(
                 link,
-                audio_parameters=HighQualityAudio(),
-                video_parameters=HighQualityVideo(),
+                audio_parameters=MediumQualityAudio(),
+                video_parameters=MediumQualityVideo(),
             )
         else:
-            stream = AudioPiped(link, audio_parameters=HighQualityAudio())
+            stream = AudioPiped(link, audio_parameters=MediumQualityAudio())
         await assistant.change_stream(
             chat_id,
             stream,
@@ -259,14 +259,14 @@ class Call(PyTgCalls):
         stream = (
             AudioVideoPiped(
                 file_path,
-                audio_parameters=HighQualityAudio(),
-                video_parameters=HighQualityVideo(),
+                audio_parameters=MediumQualityAudio(),
+                video_parameters=MediumQualityVideo(),
                 additional_ffmpeg_parameters=f"-ss {to_seek} -to {duration}",
             )
             if mode == "video"
             else AudioPiped(
                 file_path,
-                audio_parameters=HighQualityAudio(),
+                audio_parameters=MediumQualityAudio(),
                 additional_ffmpeg_parameters=f"-ss {to_seek} -to {duration}",
             )
         )
@@ -296,18 +296,18 @@ class Call(PyTgCalls):
         if video:
             stream = AudioVideoPiped(
                 link,
-                audio_parameters=HighQualityAudio(),
-                video_parameters=HighQualityVideo(),
+                audio_parameters=MediumQualityAudio(),
+                video_parameters=MediumQualityVideo(),
             )
         else:
             stream = (
                 AudioVideoPiped(
                     link,
-                    audio_parameters=HighQualityAudio(),
-                    video_parameters=HighQualityVideo(),
+                    audio_parameters=MediumQualityAudio(),
+                    video_parameters=MediumQualityVideo(),
                 )
                 if video
-                else AudioPiped(link, audio_parameters=HighQualityAudio())
+                else AudioPiped(link, audio_parameters=MediumQualityAudio())
             )
         try:
             await assistant.join_group_call(
@@ -448,13 +448,13 @@ class Call(PyTgCalls):
                 if video:
                     stream = AudioVideoPiped(
                         link,
-                        audio_parameters=HighQualityAudio(),
-                        video_parameters=HighQualityVideo(),
+                        audio_parameters=MediumQualityAudio(),
+                        video_parameters=MediumQualityVideo(),
                     )
                 else:
                     stream = AudioPiped(
                         link,
-                        audio_parameters=HighQualityAudio(),
+                        audio_parameters=MediumQualityAudio(),
                     )
                 try:
                     await client.change_stream(chat_id, stream)
@@ -494,13 +494,13 @@ class Call(PyTgCalls):
                 if video:
                     stream = AudioVideoPiped(
                         file_path,
-                        audio_parameters=HighQualityAudio(),
-                        video_parameters=HighQualityVideo(),
+                        audio_parameters=MediumQualityAudio(),
+                        video_parameters=MediumQualityVideo(),
                     )
                 else:
                     stream = AudioPiped(
                         file_path,
-                        audio_parameters=HighQualityAudio(),
+                        audio_parameters=MediumQualityAudio(),
                     )
                 try:
                     await client.change_stream(chat_id, stream)
@@ -529,11 +529,11 @@ class Call(PyTgCalls):
                 stream = (
                     AudioVideoPiped(
                         videoid,
-                        audio_parameters=HighQualityAudio(),
-                        video_parameters=HighQualityVideo(),
+                        audio_parameters=MediumQualityAudio(),
+                        video_parameters=MediumQualityVideo(),
                     )
                     if str(streamtype) == "video"
-                    else AudioPiped(videoid, audio_parameters=HighQualityAudio())
+                    else AudioPiped(videoid, audio_parameters=MediumQualityAudio())
                 )
                 try:
                     await client.change_stream(chat_id, stream)
@@ -555,13 +555,13 @@ class Call(PyTgCalls):
                 if video:
                     stream = AudioVideoPiped(
                         queued,
-                        audio_parameters=HighQualityAudio(),
-                        video_parameters=HighQualityVideo(),
+                        audio_parameters=MediumQualityAudio(),
+                        video_parameters=MediumQualityVideo(),
                     )
                 else:
                     stream = AudioPiped(
                         queued,
-                        audio_parameters=HighQualityAudio(),
+                        audio_parameters=MediumQualityAudio(),
                     )
                 try:
                     await client.change_stream(chat_id, stream)
