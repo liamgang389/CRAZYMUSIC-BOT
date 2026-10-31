@@ -250,16 +250,45 @@ def _media_buttons_ok(rows) -> bool:
     return True
 
 
+_TAG_SPLIT = re.compile(r"(<[^>]*>)")
+
+
+def _md_to_html(text: str, allow_md: bool = True) -> str:
+    """Pyrogram ke mixed text (HTML + Markdown) ko valid rich-HTML me badalta hai.
+    - <a href=tg://user?id=1> (bina quotes) -> <a href="tg://user?id=1">
+    - [naam](url) -> <a href="url">naam</a>
+    - **bold**, __italic__, `code` -> <b>, <i>, <code>
+    - akela '&' -> &amp;
+    """
+    text = re.sub(r'(<a\s+href=)([^\s">][^\s>]*)(\s*>)', r'\1"\2"\3', text)
+    if allow_md:
+        text = re.sub(
+            r"\[([^\]\n]+)\]\(([^)\s]+)\)",
+            lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>',
+            text,
+        )
+    out = []
+    for i, part in enumerate(_TAG_SPLIT.split(text)):
+        if i % 2:  # tag, jaisa hai waisa
+            out.append(part)
+            continue
+        part = re.sub(r"&(?!(?:amp|lt|gt|quot|#\d+);)", "&amp;", part)
+        if allow_md:
+            part = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", part, flags=re.S)
+            part = re.sub(r"__(.+?)__", r"<i>\1</i>", part, flags=re.S)
+            part = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", part)
+        out.append(part)
+    return "".join(out)
+
+
 def _text_to_html(client, text: str, parse_mode) -> Optional[str]:
     from pyrogram.enums import ParseMode
     pm = parse_mode if parse_mode is not None else getattr(client, "parse_mode", ParseMode.DEFAULT)
     if pm == ParseMode.DISABLED:
         return _html.escape(text)
-    if pm == ParseMode.MARKDOWN:
-        return None
-    if pm == ParseMode.DEFAULT and re.search(r"\*\*|__|`|\|\|", text):
-        return None
-    return text
+    if pm in (ParseMode.DEFAULT, ParseMode.MARKDOWN) and re.search(r"\|\||```|~~", text):
+        return None  # spoiler / code-block / strike: safe nahi, purana tareeka
+    return _md_to_html(text, allow_md=(pm != ParseMode.HTML))
 
 
 async def _as_message(client, chat_id, mid, body=None):
