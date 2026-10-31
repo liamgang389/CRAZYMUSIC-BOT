@@ -15,6 +15,12 @@ from ..logging import LOGGER
 pyrogram.utils.MIN_CHANNEL_ID = -1009147483647
 
 
+def _pp():
+    # lazy import: utils/__init__ bot ke 'app' pe depend karta hai (circular import se bachne ke liye)
+    from ..utils import pro_post
+    return pro_post
+
+
 class DAXX(Client):
     def __init__(self):
         LOGGER(__name__).info(f"Starting Bot...")
@@ -77,6 +83,45 @@ class DAXX(Client):
             )
             exit()
         LOGGER(__name__).info(f"Music Bot Started as {self.name}")
+
+    # ------------------------------------------------------------------
+    # In-bubble buttons: text + InlineKeyboard wale saare messages ke buttons
+    # ab message ke andar (<tg-button-row>) jaate hain. Kuch bhi reject ho to
+    # purana (neeche wala keyboard) tareeka apne aap chalta hai.
+    # ------------------------------------------------------------------
+    async def send_message(self, chat_id, text, *args, **kwargs):
+        pro_post = _pp()
+        if pro_post.shim_enabled():
+            sent = await pro_post.shim_send(self, chat_id, text, args, kwargs)
+            if sent is not None:
+                return sent
+        return await super().send_message(chat_id, text, *args, **kwargs)
+
+    async def edit_message_text(self, chat_id, message_id, text, *args, **kwargs):
+        pro_post = _pp()
+        if pro_post.shim_enabled():
+            done = await pro_post.shim_edit_text(
+                self, chat_id, message_id, text, args, kwargs
+            )
+            if done is not None:
+                return done
+        return await super().edit_message_text(
+            chat_id, message_id, text, *args, **kwargs
+        )
+
+    async def edit_message_reply_markup(
+        self, chat_id, message_id, reply_markup=None, **kwargs
+    ):
+        pro_post = _pp()
+        if pro_post.shim_enabled():
+            done = await pro_post.shim_edit_markup(
+                self, chat_id, message_id, reply_markup, kwargs
+            )
+            if done is not None:
+                return done
+        return await super().edit_message_reply_markup(
+            chat_id, message_id, reply_markup, **kwargs
+        )
 
     async def stop(self):
         await super().stop()

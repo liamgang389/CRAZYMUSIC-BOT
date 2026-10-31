@@ -27,6 +27,7 @@ from config import (BANNED_USERS, SONG_DOWNLOAD_DURATION,
 from CRAZYHUBBOT.utils.decorators.language import language, languageCB
 from CRAZYHUBBOT.utils.formatters import convert_bytes
 from CRAZYHUBBOT.utils.inline.song import song_markup
+from CRAZYHUBBOT.utils.pro_post import send_pro_post
 
 # Command
 SONG_COMMAND = ["song"]
@@ -39,17 +40,16 @@ SONG_COMMAND = ["song"]
 )
 @language
 async def song_commad_group(client, message: Message, _):
-    upl = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    text=_["SG_B_1"],
-                    url=f"https://t.me/{app.username}?start=song", style=ButtonStyle.SUCCESS
-                ),
-            ]
-        ]
+    await send_pro_post(
+        message.chat.id,
+        _["song_1"],
+        rows=[[{
+            "text": _["SG_B_1"],
+            "url": f"https://t.me/{app.username}?start=song",
+            "style": "success",
+        }]],
+        reply_to=message.id,
     )
-    await message.reply_text(_["song_1"], reply_markup=upl)
 
 
 # Song Module
