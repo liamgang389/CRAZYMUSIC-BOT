@@ -24,6 +24,45 @@ from ..logging import LOGGER
 pyrogram.utils.MIN_CHANNEL_ID = -1009147483647
 
 
+_keepalive_server = None
+
+
+async def start_keepalive():
+    """Chhota web server (sirf stdlib): UptimeRobot isko ping kare to Render Web
+    Service 'idle' hokar band nahi hoti. PORT env (Render khud deta hai) ya
+    KEEPALIVE_PORT par chalta hai. Band karne ke liye: KEEPALIVE=false"""
+    global _keepalive_server
+    import os
+    if os.getenv("KEEPALIVE", "true").lower() in ("0", "false", "no", "off"):
+        return
+    port = os.getenv("PORT") or os.getenv("KEEPALIVE_PORT")
+    if not port:
+        LOGGER(__name__).info("keepalive: PORT set nahi hai, web server nahi chalaya")
+        return
+
+    async def handle(reader, writer):
+        try:
+            await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5)
+        except Exception:
+            pass
+        body = b"Music bot is running"
+        writer.write(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n"
+            b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+            b"Connection: close\r\n\r\n" + body
+        )
+        try:
+            await writer.drain()
+        finally:
+            writer.close()
+
+    try:
+        _keepalive_server = await asyncio.start_server(handle, "0.0.0.0", int(port))
+        LOGGER(__name__).info(f"keepalive: web server chalu (port {port})")
+    except Exception as e:  # bot ko kabhi na roke
+        LOGGER(__name__).warning(f"keepalive server start nahi hua: {e!r}")
+
+
 # ======================================================================
 # IN-BUBBLE BUTTONS (single-file version)
 # Env: INBUBBLE_BUTTONS=false (band) | INBUBBLE_FORCE=true | INBUBBLE_MEDIA_CALLBACKS=a,b
@@ -535,6 +574,7 @@ class DAXX(Client):
                 await asyncio.sleep(wait_time)
 
         _pp().log_status()
+        await start_keepalive()
         self.id = self.me.id
         self.name = self.me.first_name + " " + (self.me.last_name or "")
         self.username = self.me.username
