@@ -66,6 +66,7 @@ async def start_keepalive():
 # ======================================================================
 # IN-BUBBLE BUTTONS (single-file version)
 # Env: INBUBBLE_BUTTONS=false (band) | INBUBBLE_FORCE=true | INBUBBLE_MEDIA_CALLBACKS=a,b
+# Player ko wapas neeche karna ho: INBUBBLE_MEDIA_CALLBACKS=dash_cb,dash_back
 # ======================================================================
 API = "https://api.telegram.org/bot{token}/{method}"
 _client: Optional[httpx.AsyncClient] = None
@@ -280,7 +281,7 @@ def _media_buttons_ok(rows) -> bool:
     """Photo/video message tabhi in-bubble jab edit-safe ho: sirf URL buttons,
     ya callback prefixes allowlist me ho (default: dashboard)."""
     allow = tuple(
-        p.strip() for p in os.getenv("INBUBBLE_MEDIA_CALLBACKS", "dash_cb,dash_back").split(",") if p.strip()
+        p.strip() for p in os.getenv("INBUBBLE_MEDIA_CALLBACKS", "dash_cb,dash_back,ADMIN,close").split(",") if p.strip()
     )
     for row in rows:
         for b in row:
