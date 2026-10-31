@@ -26,14 +26,7 @@ pyrogram.utils.MIN_CHANNEL_ID = -1009147483647
 
 # ======================================================================
 # IN-BUBBLE BUTTONS (single-file version)
-# Buttons ko message ke bubble ke ANDAR bhejta hai (Telegram rich message,
-# <tg-button-row>). Kuch bhi reject ho to purana (neeche wala keyboard) chalta hai.
-#
-# Env:
-#   INBUBBLE_BUTTONS=false        -> band (purana behaviour)
-#   INBUBBLE_FORCE=true           -> Kurigram detection skip karke chalu
-#   INBUBBLE_MEDIA_CALLBACKS=a,b  -> in callback prefixes wale photo/video bhi
-#                                    in-bubble (default: dash_cb,dash_back)
+# Env: INBUBBLE_BUTTONS=false (band) | INBUBBLE_FORCE=true | INBUBBLE_MEDIA_CALLBACKS=a,b
 # ======================================================================
 API = "https://api.telegram.org/bot{token}/{method}"
 _client: Optional[httpx.AsyncClient] = None
@@ -302,7 +295,7 @@ _SEND_OK = {
 }
 _MEDIA_IGNORE = {  # media args jo bubble me farak nahi daalte
     "caption", "supports_streaming", "duration", "width", "height", "thumb",
-    "file_name", "show_caption_above_media",
+    "file_name", "show_caption_above_media", "progress", "progress_args",
 }
 
 
@@ -310,7 +303,7 @@ def _extra_args_block(kwargs, ok) -> bool:
     for k, v in kwargs.items():
         if k in ok or k in _MEDIA_IGNORE:
             continue
-        if v not in (None, False):
+        if v:
             return True
     return False
 
@@ -368,7 +361,7 @@ async def shim_send_media(client, kind, chat_id, media, args, kwargs):
             return None
         extra = [k for k, v in kwargs.items()
                  if k not in _SEND_OK and k not in _MEDIA_IGNORE
-                 and k not in ("has_spoiler", "ttl_seconds") and v not in (None, False)]
+                 and k not in ("has_spoiler", "ttl_seconds") and v]
         if extra:
             LOGGER(__name__).info(f"in-bubble {kind} skip: extra args {extra}")
             return None
@@ -406,7 +399,7 @@ async def shim_edit_text(client, chat_id, message_id, text, args, kwargs):
         from pyrogram.types import InlineKeyboardMarkup
         if args or not isinstance(chat_id, int) or not text:
             return None
-        if any(v not in (None, False) for k, v in kwargs.items() if k not in _EDIT_OK):
+        if any(v for k, v in kwargs.items() if k not in _EDIT_OK):
             return None
         if kwargs.get("entities"):
             return None
@@ -475,7 +468,6 @@ async def shim_edit_markup(client, chat_id, message_id, reply_markup, kwargs):
 
 
 def _pp():
-    """DAXX ke methods isse shim_* functions lete hain (isi file ke functions)."""
     return sys.modules[__name__]
 
 
