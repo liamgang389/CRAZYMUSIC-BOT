@@ -1,25 +1,34 @@
 """
 CRAZYHUBBOT/utils/pro_post.py
 
-Buttons ko message ke BUBBLE ke ANDAR bhejta hai (Telegram <tg-button-row>).
+Buttons ko message ke BUBBLE ke ANDAR bhejta hai (Telegram rich message,
+<tg-button-row>). Kurigram ke saath raw Bot API (httpx) use hota hai.
 
-Teen tareeke, ek ke baad ek:
-  1. sendRichMessage + HTML  (<tg-button-row> / <tg-button>)   <- default
-  2. sendRichMessage + JSON blocks (InputRichBlockButtons)
-  3. sendMessage + neeche wala InlineKeyboard (sirf jab upar ke dono reject hon)
+Order:
+  1. sendRichMessage + HTML (<tg-button-row>/<tg-button>)   <- default
+  2. Reject hua to caller ka PURANA tareeka (neeche wala keyboard)
 
 Do tarah se use hota hai:
-  * send_pro_post(...)            -> seedha (ytsearch, /song group)
-  * shim_send / shim_edit_*       -> core/bot.py me DAXX client ke
-                                     send_message / edit_message_text /
-                                     edit_message_reply_markup ke andar.
-                                     Isse bot ke saare text+button messages
-                                     automatically in-bubble ho jaate hain.
+  * send_pro_post(...)      -> seedha (ytsearch, /song group)
+  * shim_*                  -> core/bot.py me DAXX client ke send_message /
+                               send_photo / send_video / edit_message_text /
+                               edit_message_caption / edit_message_reply_markup
+                               ke andar. Text+button wale saare messages aur
+                               (URL-only ya dashboard) photo/video messages
+                               automatically in-bubble ho jaate hain.
 
-Env:  INBUBBLE_BUTTONS=false  -> shim band (purana behaviour)
-      INBUBBLE_FORCE=true     -> kurigram detection skip karke shim chalu
+NOTE: Telegram ke docs ke mutabik InputRichMessage me html / markdown / blocks me se
+SIRF EK hona chahiye. Isliye pehle wala "html + blocks" fallback galat tha, hata diya.
+
+Env:
+  INBUBBLE_BUTTONS=false          -> shim band (purana behaviour)
+  INBUBBLE_FORCE=true             -> kurigram detection skip karke chalu
+  INBUBBLE_MEDIA_CALLBACKS=a,b    -> jin callback prefixes wale photo/video messages
+                                     bhi in-bubble hon (default: dash_cb,dash_back).
+                                     URL-only buttons wale media hamesha in-bubble.
 """
 import html as _html
+import json
 import os
 import re
 from collections import OrderedDict
@@ -37,14 +46,17 @@ _client: Optional[httpx.AsyncClient] = None
 def _http() -> httpx.AsyncClient:
     global _client
     if _client is None:
-        _client = httpx.AsyncClient(timeout=30)
+        _client = httpx.AsyncClient(timeout=60)
     return _client
 
 
-async def _call(method: str, payload: dict) -> dict:
-    r = await _http().post(
-        API.format(token=config.BOT_TOKEN, method=method), json=payload
-    )
+async def _call(method: str, payload: dict, files: Optional[dict] = None) -> dict:
+    url = API.format(token=config.BOT_TOKEN, method=method)
+    if files:  # local file upload (attach://)
+        data = {k: v if isinstance(v, str) else json.dumps(v) for k, v in payload.items()}
+        r = await _http().post(url, data=data, files=files)
+    else:
+        r = await _http().post(url, json=payload)
     data = r.json()
     if not data.get("ok"):
         raise RuntimeError(f"{method}: {data.get('description')}")
@@ -52,10 +64,10 @@ async def _call(method: str, payload: dict) -> dict:
 
 
 # ----------------------------------------------------------------------
-# Helpers
+# HTML helpers
 # ----------------------------------------------------------------------
 def _nl2br(body: str) -> str:
-    """Rich HTML me '\\n' collapse ho jaata hai, isliye <br> chahiye (<pre> ke bahar)."""
+    """Rich HTML me '\\n' collapse ho jaata hai, isliye <br> (<pre> ke bahar)."""
     parts = re.split(r"(<pre.*?</pre>)", body, flags=re.S | re.I)
     return "".join(
         p if i % 2 else p.replace("\r", "").replace("\n", "<br>")
@@ -63,21 +75,6 @@ def _nl2br(body: str) -> str:
     )
 
 
-def _clean(b: dict) -> dict:
-    """JSON button (RichMessageButton / InlineKeyboardButton) ke liye."""
-    out = {"text": b["text"]}
-    if b.get("style"):
-        out["style"] = b["style"]
-    if b.get("url"):
-        out["url"] = b["url"]
-    elif b.get("callback_data") is not None:
-        out["callback_data"] = b["callback_data"]
-    return out
-
-
-# ----------------------------------------------------------------------
-# 1. HTML + <tg-button-row>
-# ----------------------------------------------------------------------
 def _button_html(b: dict) -> str:
     style = f' style="{b["style"]}"' if b.get("style") else ""
     if b.get("url"):
@@ -90,7 +87,7 @@ def _button_html(b: dict) -> str:
     return f"<tg-button {attrs}{style}>{_html.escape(b['text'])}</tg-button>"
 
 
-def _rows_html(rows: List[List[dict]], align: Optional[str]) -> str:
+def _rows_html(rows: List[List[dict]], align: Optional[str] = None) -> str:
     a = f' align="{align}"' if align else ""
     return "".join(
         f"<tg-button-row{a}>{''.join(_button_html(b) for b in row[:8])}</tg-button-row>"
@@ -99,47 +96,71 @@ def _rows_html(rows: List[List[dict]], align: Optional[str]) -> str:
     )
 
 
-async def _via_html(body, rows, align):
-    return {"html": f"{_nl2br(body)}{_rows_html(rows, align)}"}
+def _clean(b: dict) -> dict:
+    out = {"text": b["text"]}
+    if b.get("style"):
+        out["style"] = b["style"]
+    if b.get("url"):
+        out["url"] = b["url"]
+    elif b.get("callback_data") is not None:
+        out["callback_data"] = b["callback_data"]
+    return out
 
 
 # ----------------------------------------------------------------------
-# 2. JSON blocks (InputRichBlockButtons)
+# Entry = ek message ka content (text ya media + caption). Edit ke liye yaad rakhte hain.
+#   {"media": [{"id","type","src"}], "body": "<html>"}
 # ----------------------------------------------------------------------
-async def _via_blocks(body, rows, align):
-    blocks = []
-    for row in rows:
-        if not row:
-            continue
-        blk = {"type": "buttons", "buttons": [_clean(b) for b in row[:8]]}
-        if align:
-            blk["align"] = align
-        blocks.append(blk)
-    # NOTE: InputRichMessage me abhi sirf html/markdown documented hai; ye shape
-    # andaza hai. Reject hua to agla tareeka / purana keyboard chalega.
-    return {"html": _nl2br(body), "blocks": blocks}
+def _media_head(media: list) -> str:
+    out = ""
+    for m in media:
+        if m["type"] == "photo":
+            out += f'<img src="tg://photo?id={m["id"]}">'
+        else:
+            out += f'<video src="tg://video?id={m["id"]}"></video>'
+    return out
 
 
-_RICH_BUILDERS = (_via_html, _via_blocks)
+def _payload(entry: dict, rows, align=None):
+    """(rich_message dict, files dict|None)"""
+    rich = {"html": _media_head(entry["media"]) + _nl2br(entry["body"]) + _rows_html(rows, align)}
+    files = None
+    if entry["media"]:
+        rich["media"], files = [], {}
+        for i, m in enumerate(entry["media"]):
+            src = m["src"]
+            if m.get("local"):
+                name = f"f{i}"
+                with open(src, "rb") as fh:
+                    files[name] = (os.path.basename(src), fh.read())
+                src = f"attach://{name}"
+            rich["media"].append({"id": m["id"], "media": {"type": m["type"], "media": src}})
+        files = files or None
+    return rich, files
+
+
+async def _send_entry(chat_id, entry, rows, align, base) -> dict:
+    rich, files = _payload(entry, rows, align)
+    res = await _call("sendRichMessage", {**base, "chat_id": chat_id, "rich_message": rich}, files)
+    LOGGER(__name__).info("pro_post sent via _via_html")
+    return res
+
+
+async def _edit_entry(chat_id, mid, entry, rows):
+    rich, files = _payload(entry, rows)
+    try:
+        return await _call("editMessageText", {
+            "chat_id": chat_id, "message_id": mid, "rich_message": rich,
+        }, files)
+    except RuntimeError as e:
+        if "not modified" in str(e).lower():
+            return True
+        raise
 
 
 # ----------------------------------------------------------------------
-# Send / edit (Bot API)
+# Direct use (ytsearch, /song group)
 # ----------------------------------------------------------------------
-async def _send_rich(chat_id, body, rows, align, base) -> dict:
-    last = None
-    for build in _RICH_BUILDERS:
-        try:
-            rich = await build(body, rows, align)
-            res = await _call("sendRichMessage", {**base, "chat_id": chat_id, "rich_message": rich})
-            LOGGER(__name__).info(f"pro_post sent via {build.__name__}")
-            return res
-        except Exception as e:
-            LOGGER(__name__).warning(f"pro_post {build.__name__} rejected: {e}")
-            last = e
-    raise RuntimeError(str(last))
-
-
 async def send_pro_post(
     chat_id,
     body_html: str,
@@ -153,9 +174,9 @@ async def send_pro_post(
     if reply_to:
         base["reply_parameters"] = {"message_id": reply_to}
     try:
-        return await _send_rich(chat_id, body_html, rows, align, base)
-    except Exception:
-        # 3. neeche wala keyboard
+        return await _send_entry(chat_id, {"media": [], "body": body_html}, rows, align, base)
+    except Exception as e:
+        LOGGER(__name__).warning(f"pro_post rich rejected, keyboard fallback: {e}")
         kb = {"inline_keyboard": [[_clean(b) for b in row] for row in rows if row]}
         res = await _call("sendMessage", {
             **base, "chat_id": chat_id, "text": body_html, "parse_mode": "HTML",
@@ -166,32 +187,30 @@ async def send_pro_post(
 
 
 # ======================================================================
-# SHIM: Kurigram client ke methods ke andar (saare buttons ke liye)
+# SHIM: Kurigram client ke methods ke andar
 # ======================================================================
 def shim_enabled() -> bool:
     if os.getenv("INBUBBLE_BUTTONS", "true").lower() in ("0", "false", "no", "off"):
         return False
     if os.getenv("INBUBBLE_FORCE", "false").lower() in ("1", "true", "yes", "on"):
         return True
-    try:  # Rich message support wala Kurigram chahiye (Bot API 10.3)
+    try:
         import pyrogram.types as t
         return hasattr(t, "InputRichMessage")
     except Exception:
         return False
 
 
-# (chat_id, message_id) -> body html. Edit ke time body wapas chahiye hota hai.
-_REG: "OrderedDict[tuple, str]" = OrderedDict()
+_REG: "OrderedDict[tuple, dict]" = OrderedDict()  # (chat_id, mid) -> entry
 
 
-def _remember(chat_id: int, mid: int, body: str):
-    _REG[(chat_id, mid)] = body
+def _remember(chat_id: int, mid: int, entry: dict):
+    _REG[(chat_id, mid)] = entry
     while len(_REG) > 5000:
         _REG.popitem(last=False)
 
 
 def markup_to_rows(markup) -> Optional[List[List[dict]]]:
-    """Kurigram InlineKeyboardMarkup -> rows. Unsupported button ho to None."""
     kb = getattr(markup, "inline_keyboard", None)
     if not kb:
         return None
@@ -211,10 +230,23 @@ def markup_to_rows(markup) -> Optional[List[List[dict]]]:
                 cd = b.callback_data
                 d["callback_data"] = cd.decode() if isinstance(cd, bytes) else cd
             else:
-                return None  # web_app / switch_inline / login etc. -> purana tareeka
+                return None
             out.append(d)
         rows.append(out)
     return rows
+
+
+def _media_buttons_ok(rows) -> bool:
+    """Photo/video message tabhi in-bubble jab edit-safe ho: sirf URL buttons,
+    ya callback prefixes allowlist me ho (default: dashboard)."""
+    allow = tuple(
+        p.strip() for p in os.getenv("INBUBBLE_MEDIA_CALLBACKS", "dash_cb,dash_back").split(",") if p.strip()
+    )
+    for row in rows:
+        for b in row:
+            if b.get("callback_data") is not None and not str(b["callback_data"]).startswith(allow):
+                return False
+    return True
 
 
 def _text_to_html(client, text: str, parse_mode) -> Optional[str]:
@@ -225,7 +257,7 @@ def _text_to_html(client, text: str, parse_mode) -> Optional[str]:
     if pm == ParseMode.MARKDOWN:
         return None
     if pm == ParseMode.DEFAULT and re.search(r"\*\*|__|`|\|\|", text):
-        return None  # markdown mila-jula hai, safe nahi
+        return None
     return text
 
 
@@ -243,69 +275,111 @@ async def _as_message(client, chat_id, mid, body=None):
             return None
 
 
+def _media_src(x):
+    """-> (src, is_local) | None"""
+    if isinstance(x, str):
+        if x.startswith(("http://", "https://")):
+            return x, False
+        if os.path.isfile(x):
+            return x, True
+        if re.fullmatch(r"[A-Za-z0-9_\-]{20,}", x):
+            return x, False  # file_id
+    return None
+
+
 _SEND_OK = {
     "parse_mode", "link_preview_options", "disable_web_page_preview",
     "disable_notification", "message_thread_id", "reply_to_message_id",
     "reply_parameters", "protect_content", "reply_markup",
 }
+_MEDIA_IGNORE = {  # media args jo bubble me farak nahi daalte
+    "caption", "supports_streaming", "duration", "width", "height", "thumb",
+    "file_name", "show_caption_above_media",
+}
+
+
+def _extra_args_block(kwargs, ok) -> bool:
+    for k, v in kwargs.items():
+        if k in ok or k in _MEDIA_IGNORE:
+            continue
+        if v not in (None, False):
+            return True
+    return False
+
+
+def _base_params(kwargs) -> dict:
+    base = {}
+    rp = kwargs.get("reply_parameters")
+    reply_to = kwargs.get("reply_to_message_id") or getattr(rp, "message_id", None)
+    if reply_to:
+        base["reply_parameters"] = {"message_id": reply_to}
+    if kwargs.get("message_thread_id"):
+        base["message_thread_id"] = kwargs["message_thread_id"]
+    if kwargs.get("disable_notification"):
+        base["disable_notification"] = True
+    if kwargs.get("protect_content"):
+        base["protect_content"] = True
+    return base
+
+
+async def _finish_send(client, res, entry, fallback_text):
+    mid = res["message_id"]
+    _remember(res["chat"]["id"], mid, entry)
+    return await _as_message(client, res["chat"]["id"], mid, fallback_text)
 
 
 async def shim_send(client, chat_id, text, args, kwargs):
-    """Kurigram send_message(text + InlineKeyboardMarkup) -> in-bubble.
-    None return = ye message convert nahi ho sakta, purana tareeka chalao."""
+    """send_message(text + InlineKeyboard) -> in-bubble. None = purana tareeka."""
     try:
         from pyrogram.types import InlineKeyboardMarkup
         markup = kwargs.get("reply_markup")
         if args or not text or not isinstance(markup, InlineKeyboardMarkup):
             return None
-        if any(v not in (None, False) for k, v in kwargs.items() if k not in _SEND_OK):
+        if _extra_args_block(kwargs, _SEND_OK):
             return None
         rows = markup_to_rows(markup)
         body = _text_to_html(client, text, kwargs.get("parse_mode"))
         if not rows or body is None:
             return None
-
-        base = {}
-        rp = kwargs.get("reply_parameters")
-        reply_to = kwargs.get("reply_to_message_id") or getattr(rp, "message_id", None)
-        if reply_to:
-            base["reply_parameters"] = {"message_id": reply_to}
-        if kwargs.get("message_thread_id"):
-            base["message_thread_id"] = kwargs["message_thread_id"]
-        if kwargs.get("disable_notification"):
-            base["disable_notification"] = True
-        if kwargs.get("protect_content"):
-            base["protect_content"] = True
-
-        res = await _send_rich(chat_id, body, rows, None, base)
+        entry = {"media": [], "body": body}
+        res = await _send_entry(chat_id, entry, rows, None, _base_params(kwargs))
     except Exception as e:
         LOGGER(__name__).warning(f"in-bubble send skipped: {e}")
         return None
+    return await _finish_send(client, res, entry, text)
 
-    mid = res["message_id"]
-    _remember(res["chat"]["id"], mid, body)
-    return await _as_message(client, res["chat"]["id"], mid, text)
+
+async def shim_send_media(client, kind, chat_id, media, args, kwargs):
+    """send_photo / send_video (caption + InlineKeyboard) -> in-bubble."""
+    try:
+        from pyrogram.types import InlineKeyboardMarkup
+        markup = kwargs.get("reply_markup")
+        if args or not isinstance(markup, InlineKeyboardMarkup):
+            return None
+        if kwargs.get("has_spoiler") or kwargs.get("ttl_seconds"):
+            return None
+        if _extra_args_block({k: v for k, v in kwargs.items() if k not in ("has_spoiler", "ttl_seconds")}, _SEND_OK):
+            return None
+        rows = markup_to_rows(markup)
+        src = _media_src(media)
+        if not rows or src is None or not _media_buttons_ok(rows):
+            return None
+        caption = kwargs.get("caption") or ""
+        body = _text_to_html(client, caption, kwargs.get("parse_mode")) if caption else ""
+        if body is None:
+            return None
+        entry = {"media": [{"id": "m1", "type": kind, "src": src[0], "local": src[1]}], "body": body}
+        res = await _send_entry(chat_id, entry, rows, None, _base_params(kwargs))
+    except Exception as e:
+        LOGGER(__name__).warning(f"in-bubble {kind} send skipped: {e}")
+        return None
+    return await _finish_send(client, res, entry, caption)
 
 
 _EDIT_OK = {
     "parse_mode", "link_preview_options", "disable_web_page_preview",
-    "reply_markup", "business_connection_id",
+    "reply_markup", "business_connection_id", "caption_entities", "entities",
 }
-
-
-async def _rich_edit(chat_id, mid, body, rows):
-    last = None
-    for build in _RICH_BUILDERS:
-        try:
-            rich = await build(body, rows, None)
-            return await _call("editMessageText", {
-                "chat_id": chat_id, "message_id": mid, "rich_message": rich,
-            })
-        except Exception as e:
-            if "not modified" in str(e).lower():
-                return True
-            last = e
-    raise RuntimeError(str(last))
 
 
 async def shim_edit_text(client, chat_id, message_id, text, args, kwargs):
@@ -315,25 +389,55 @@ async def shim_edit_text(client, chat_id, message_id, text, args, kwargs):
             return None
         if any(v not in (None, False) for k, v in kwargs.items() if k not in _EDIT_OK):
             return None
+        if kwargs.get("entities"):
+            return None
+        old = _REG.get((chat_id, message_id))
+        if old is not None and old["media"]:
+            return None  # media message ka text edit = caption edit; alag handler
         markup = kwargs.get("reply_markup")
-        known = (chat_id, message_id) in _REG
         if isinstance(markup, InlineKeyboardMarkup):
             rows = markup_to_rows(markup)
             if not rows:
                 return None
-        elif known:
+        elif old is not None:
             rows = []
         else:
             return None
         body = _text_to_html(client, text, kwargs.get("parse_mode"))
         if body is None:
             return None
-        await _rich_edit(chat_id, message_id, body, rows)
+        entry = {"media": [], "body": body}
+        await _edit_entry(chat_id, message_id, entry, rows)
     except Exception as e:
         LOGGER(__name__).warning(f"in-bubble edit skipped: {e}")
         return None
-    _remember(chat_id, message_id, body)
+    _remember(chat_id, message_id, entry)
     return await _as_message(client, chat_id, message_id, text)
+
+
+async def shim_edit_caption(client, chat_id, message_id, caption, args, kwargs):
+    """Sirf un media messages ke liye jo humne in-bubble bheje (registry me hain)."""
+    try:
+        from pyrogram.types import InlineKeyboardMarkup
+        old = _REG.get((chat_id, message_id)) if isinstance(chat_id, int) else None
+        if old is None or not old["media"] or args:
+            return None
+        if kwargs.get("caption_entities"):
+            return None
+        markup = kwargs.get("reply_markup")
+        rows = markup_to_rows(markup) if isinstance(markup, InlineKeyboardMarkup) else []
+        if markup is not None and not rows:
+            return None
+        body = _text_to_html(client, caption or "", kwargs.get("parse_mode")) if caption else ""
+        if body is None:
+            return None
+        entry = {"media": old["media"], "body": body}
+        await _edit_entry(chat_id, message_id, entry, rows)
+    except Exception as e:
+        LOGGER(__name__).warning(f"in-bubble caption edit skipped: {e}")
+        return None
+    _remember(chat_id, message_id, entry)
+    return await _as_message(client, chat_id, message_id, caption)
 
 
 async def shim_edit_markup(client, chat_id, message_id, reply_markup, kwargs):
@@ -344,7 +448,7 @@ async def shim_edit_markup(client, chat_id, message_id, reply_markup, kwargs):
         rows = markup_to_rows(reply_markup) if reply_markup else []
         if reply_markup and not rows:
             return None
-        await _rich_edit(chat_id, message_id, _REG[key], rows)
+        await _edit_entry(chat_id, message_id, _REG[key], rows)
     except Exception as e:
         LOGGER(__name__).warning(f"in-bubble markup edit skipped: {e}")
         return None

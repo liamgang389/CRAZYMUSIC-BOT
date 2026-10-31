@@ -109,6 +109,38 @@ class DAXX(Client):
             chat_id, message_id, text, *args, **kwargs
         )
 
+    async def send_photo(self, chat_id, photo, *args, **kwargs):
+        pro_post = _pp()
+        if pro_post.shim_enabled():
+            sent = await pro_post.shim_send_media(
+                self, "photo", chat_id, photo, args, kwargs
+            )
+            if sent is not None:
+                return sent
+        return await super().send_photo(chat_id, photo, *args, **kwargs)
+
+    async def send_video(self, chat_id, video, *args, **kwargs):
+        pro_post = _pp()
+        if pro_post.shim_enabled():
+            sent = await pro_post.shim_send_media(
+                self, "video", chat_id, video, args, kwargs
+            )
+            if sent is not None:
+                return sent
+        return await super().send_video(chat_id, video, *args, **kwargs)
+
+    async def edit_message_caption(self, chat_id, message_id, caption, *args, **kwargs):
+        pro_post = _pp()
+        if pro_post.shim_enabled():
+            done = await pro_post.shim_edit_caption(
+                self, chat_id, message_id, caption, args, kwargs
+            )
+            if done is not None:
+                return done
+        return await super().edit_message_caption(
+            chat_id, message_id, caption, *args, **kwargs
+        )
+
     async def edit_message_reply_markup(
         self, chat_id, message_id, reply_markup=None, **kwargs
     ):
