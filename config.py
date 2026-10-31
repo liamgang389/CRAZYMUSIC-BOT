@@ -28,7 +28,7 @@ ASSUSERNAME = getenv("ASSUSERNAME" , "MREVO")
 # reads these exact env var names directly. Get your own key from
 # @SHRUTIAPIBOT on Telegram; without it, the bot falls back to a shared
 # demo key that gets rate-limited fast since many bots share it.
-SHRUTI_API_URL = getenv("SHRUTI_API_URL", "https://api01.shrutibots.site")
+SHRUTI_API_URL = getenv("SHRUTI_API_URL", "https://api.shrutibots.in")
 SHRUTI_API_KEY = getenv("SHRUTI_API_KEY", None)
 
 # Set to "False" to skip the ShrutiAPI entirely and always download via
