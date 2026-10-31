@@ -403,7 +403,7 @@ async def shim_send_media(client, kind, chat_id, media, args, kwargs):
             LOGGER(__name__).info(f"in-bubble {kind} skip: media source not url/file/file_id: {type(media).__name__}")
             return None
         if not _media_buttons_ok(rows):
-            LOGGER(__name__).info(f"in-bubble {kind} skip: callback buttons not allowlisted (player/edit-safe)")
+            LOGGER(__name__).info(f"in-bubble {kind} skip: callback buttons allowlisted nahi (player etc.). Chalu karna ho: INBUBBLE_MEDIA_CALLBACKS env me prefix daalo")
             return None
         caption = kwargs.get("caption") or ""
         body = _text_to_html(client, caption, kwargs.get("parse_mode")) if caption else ""
@@ -484,8 +484,8 @@ async def shim_edit_caption(client, chat_id, message_id, caption, args, kwargs):
 async def shim_edit_markup(client, chat_id, message_id, reply_markup, kwargs):
     try:
         key = (chat_id, message_id)
-        if key not in _REG or kwargs:
-            return None
+        if key not in _REG or any(v for v in kwargs.values()):
+            return None  # khaali kwargs (business_connection_id=None) ignore
         rows = markup_to_rows(reply_markup) if reply_markup else []
         if reply_markup and not rows:
             return None
@@ -621,19 +621,31 @@ class DAXX(Client):
             chat_id, message_id, caption, *args, **kwargs
         )
 
-    async def edit_message_reply_markup(
-        self, chat_id, message_id, reply_markup=None, **kwargs
-    ):
+    async def edit_message_reply_markup(self, *args, **kwargs):
+        """Pass-through: Kurigram ko EXACT wahi args jaate hain jo aaye the.
+        Sirf in-bubble (rich) messages ke liye shim beech me aata hai."""
         pro_post = _pp()
-        if pro_post.shim_enabled():
-            done = await pro_post.shim_edit_markup(
-                self, chat_id, message_id, reply_markup, kwargs
-            )
-            if done is not None:
-                return done
-        return await super().edit_message_reply_markup(
-            chat_id, message_id, reply_markup, **kwargs
-        )
+        try:
+            if pro_post.shim_enabled():
+                names = ("chat_id", "message_id", "reply_markup")
+                got = dict(zip(names, args))
+                got.update({k: kwargs[k] for k in names if k in kwargs})
+                extra = {k: v for k, v in kwargs.items() if k not in names}
+                if "chat_id" in got and "message_id" in got:
+                    done = await pro_post.shim_edit_markup(
+                        self, got["chat_id"], got["message_id"],
+                        got.get("reply_markup"), extra,
+                    )
+                    if done is not None:
+                        return done
+        except Exception as e:
+            LOGGER(__name__).warning(f"in-bubble markup shim error: {e!r}")
+        try:
+            return await super().edit_message_reply_markup(*args, **kwargs)
+        except Exception as e:
+            # timer loop errors ko chupchap nigal jata hai; yahan log ho jayega
+            LOGGER(__name__).warning(f"edit_message_reply_markup failed: {e!r}")
+            raise
 
     async def stop(self):
         await super().stop()
