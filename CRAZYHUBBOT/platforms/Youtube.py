@@ -62,84 +62,102 @@ def _extract_video_id(link: str) -> str:
     return link
 
 
-async def api_download_song(link: str) -> str:
-    """Download audio via the shrutibots API. Returns file path or None on failure."""
+# ---------------------------------------------------------------------------
+# Multi-provider API download. Order:
+#   1. SpYtAPI  (@SpYtAPI1Bot)  -> env MusicSp_API_KEY (+ optional MusicSp_API_URL)
+#   2. ShrutiAPI (@SHRUTIAPIBOT) -> env SHRUTI_API_KEY
+#   3. yt-dlp fallback (callers handle it when we return None)
+# Dono ka format same hai: GET {url}/download?url=<video_id>&type=audio|video&api_key=<key>
+# ---------------------------------------------------------------------------
+SPARROW_URL = os.environ.get("MusicSp_API_URL", "https://apisparrow.site").rstrip("/")
+SPARROW_KEY = os.environ.get("MusicSp_API_KEY")
+_SPARROW_ON = bool(SPARROW_KEY or os.environ.get("MusicSp_API_URL"))
+print(
+    "[SpYtAPI] "
+    + ("ON  (" + SPARROW_URL + ")" if _SPARROW_ON else "OFF (MusicSp_API_KEY set nahi hai)"),
+    flush=True,
+)
+
+
+import time as _time
+
+_API_COOLDOWN = 120  # seconds: fail hua provider itni der skip (dusra turant chale)
+_api_down_until = {}
+
+
+def _api_providers():
+    providers = []
+    if _SPARROW_ON:
+        providers.append(("SpYtAPI", SPARROW_URL, SPARROW_KEY))
+    providers.append(("ShrutiAPI", API_URL, API_KEY))
+    now = _time.time()
+    live = [p for p in providers if _api_down_until.get(p[0], 0) <= now]
+    # sab cooldown me ho to bhi sabko try karo (kabhi bina try kiye haar nahi)
+    return live or providers
+
+
+async def _api_fetch(name, base, key, video_id, kind, file_path, timeout) -> bool:
+    params = {"url": video_id, "type": kind}
+    if key:
+        params["api_key"] = key
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{str(base).rstrip('/')}/download",
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=timeout, sock_connect=15, sock_read=90),
+            ) as resp:
+                ctype = (resp.headers.get("Content-Type") or "").lower()
+                if resp.status != 200 or "json" in ctype or "text/html" in ctype:
+                    body_preview = (await resp.text())[:300]
+                    logging.warning(
+                        f"[{name}] {kind} request failed: HTTP {resp.status} "
+                        f"({ctype or 'no content-type'}) {body_preview}"
+                    )
+                    _api_down_until[name] = _time.time() + _API_COOLDOWN
+                    return False
+                with open(file_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(131072):
+                        f.write(chunk)
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            logging.info(f"[{name}] {kind} downloaded: {file_path}")
+            return True
+        logging.warning(f"[{name}] {kind}: khaali file mili")
+    except Exception as e:
+        logging.warning(f"[{name}] {kind} download failed: {e!r}")
+        _api_down_until[name] = _time.time() + _API_COOLDOWN
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception:
+            pass
+    return False
+
+
+async def _api_download(link: str, kind: str, ext: str, timeout: int) -> str:
     video_id = _extract_video_id(link)
     if not video_id or len(video_id) < 3:
         return None
 
     os.makedirs("downloads", exist_ok=True)
-    file_path = os.path.join("downloads", f"{video_id}.mp3")
+    file_path = os.path.join("downloads", f"{video_id}.{ext}")
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "audio", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=300),
-            ) as resp:
-                if resp.status != 200:
-                    body_preview = (await resp.text())[:300]
-                    logging.warning(
-                        f"[shrutibots API] audio request failed: HTTP {resp.status} — {body_preview}"
-                    )
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+    for name, base, key in _api_providers():
+        if await _api_fetch(name, base, key, video_id, kind, file_path, timeout):
             return file_path
-        return None
-    except Exception as e:
-        logging.warning(f"[shrutibots API] audio download failed: {e}")
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
+    return None
+
+
+async def api_download_song(link: str) -> str:
+    """Audio: SpYtAPI -> ShrutiAPI. File path ya None (tab yt-dlp fallback)."""
+    return await _api_download(link, "audio", "mp3", 300)
 
 
 async def api_download_video(link: str) -> str:
-    """Download video via the shrutibots API. Returns file path or None on failure."""
-    video_id = _extract_video_id(link)
-    if not video_id or len(video_id) < 3:
-        return None
-
-    os.makedirs("downloads", exist_ok=True)
-    file_path = os.path.join("downloads", f"{video_id}.mp4")
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        return file_path
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "video", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=600),
-            ) as resp:
-                if resp.status != 200:
-                    body_preview = (await resp.text())[:300]
-                    logging.warning(
-                        f"[shrutibots API] video request failed: HTTP {resp.status} — {body_preview}"
-                    )
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
-        return None
-    except Exception as e:
-        logging.warning(f"[shrutibots API] video download failed: {e}")
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
+    """Video: SpYtAPI -> ShrutiAPI. File path ya None (tab yt-dlp fallback)."""
+    return await _api_download(link, "video", "mp4", 600)
 
 
 # ---------------------------------------------------------------------------
