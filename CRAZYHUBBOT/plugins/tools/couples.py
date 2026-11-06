@@ -1,184 +1,124 @@
-from pyrogram.enums import ButtonStyle
-import os 
+import asyncio
+import html
+import os
 import random
-from datetime import datetime 
-from telegraph import upload_file
-from PIL import Image , ImageDraw
-from pyrogram import *
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from pyrogram.enums import *
+import time
+from datetime import datetime, timedelta
 
-#BOT FILE NAME
+from pyrogram import filters
+from pyrogram.enums import ButtonStyle, ChatType, ParseMode
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+# BOT FILE NAME
 from CRAZYHUBBOT import app as app
-from CRAZYHUBBOT.mongo.couples_db import _get_image, get_couple
+from CRAZYHUBBOT.utils.couples_card import make_couple_card
 
 POLICE = [
     [
         InlineKeyboardButton(
-            text="𝙁ǻķ𝐞 𝗦𝑚ᶦ𝑙𝐞",
-            url=f"https://t.me/Fake_SmileK", style=ButtonStyle.PRIMARY
+            text="\U0001d641\u01fb\u0137\U0001d41e \U0001d5e6\U0001d45a\u1da6\U0001d459\U0001d41e",
+            url="https://t.me/Fake_SmileK",
+            style=ButtonStyle.PRIMARY,
         ),
     ],
 ]
 
+DEFAULT_PFP = "CRAZYHUBBOT/assets/upic.png"
 
-def dt():
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M")
-    dt_list = dt_string.split(" ")
-    return dt_list
-    
 
-def dt_tom():
-    a = (
-        str(int(dt()[0].split("/")[0]) + 1)
-        + "/"
-        + dt()[0].split("/")[1]
-        + "/"
-        + dt()[0].split("/")[2]
-    )
-    return a
+def _tomorrow() -> str:
+    """Kal ki date (mahine/saal badalne par bhi sahi)."""
+    return (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
 
-tomorrow = str(dt_tom())
-today = str(dt()[0])
+
+def _mention(user) -> str:
+    name = html.escape((user.first_name or "User").strip() or "User")
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
+
+
+async def _pfp(user_id: int, cid: int, tag: str) -> str:
+    try:
+        photo = (await app.get_chat(user_id)).photo
+        return await app.download_media(
+            photo.big_file_id, file_name=f"couple_{cid}_{tag}_{int(time.time())}.png"
+        )
+    except Exception:
+        return DEFAULT_PFP
+
 
 @app.on_message(filters.command("couples"))
 async def ctest(_, message):
     cid = message.chat.id
     if message.chat.type == ChatType.PRIVATE:
-        return await message.reply_text("ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs.")
+        return await message.reply_text(
+            "\u1d1b\u029c\u026as \u1d04\u1d0f\u1d0d\u1d0d\u1d00\u0274\u1d05 \u1d0f\u0274\u029f\u028f "
+            "\u1d21\u1d0f\u0280\u1d0bs \u026a\u0274 \u0262\u0280\u1d0f\u1d1c\u1d18s."
+        )
+
+    made = []
+    msg = None
     try:
-     #  is_selected = await get_couple(cid, today)
-     #  if not is_selected:
-         msg = await message.reply_text("ɢᴇɴᴇʀᴀᴛɪɴɢ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ...")
-         #GET LIST OF USERS
-         list_of_users = []
+        msg = await message.reply_text(
+            "\u0262\u1d07\u0274\u1d07\u0280\u1d00\u1d1b\u026a\u0274\u0262 "
+            "\u1d04\u1d0f\u1d1c\u1d18\u029f\u1d07s \u026a\u1d0d\u1d00\u0262\u1d07..."
+        )
 
-         async for i in app.get_chat_members(message.chat.id, limit=50):
-             if not i.user.is_bot:
-               list_of_users.append(i.user.id)
+        # GET LIST OF USERS
+        user_ids = []
+        async for m in app.get_chat_members(cid, limit=50):
+            if not m.user.is_bot:
+                user_ids.append(m.user.id)
+        if len(user_ids) < 2:
+            return await msg.edit("Couple banane ke liye group me kam se kam 2 members chahiye.")
 
-         c1_id = random.choice(list_of_users)
-         c2_id = random.choice(list_of_users)
-         while c1_id == c2_id:
-              c1_id = random.choice(list_of_users)
+        c1_id, c2_id = random.sample(user_ids, 2)
+        u1, u2 = await app.get_users([c1_id, c2_id])
 
+        p1 = await _pfp(c1_id, cid, "a")
+        p2 = await _pfp(c2_id, cid, "b")
+        made += [p for p in (p1, p2) if p != DEFAULT_PFP]
 
-         photo1 = (await app.get_chat(c1_id)).photo
-         photo2 = (await app.get_chat(c2_id)).photo
- 
-         N1 = (await app.get_users(c1_id)).mention 
-         N2 = (await app.get_users(c2_id)).mention
-         
-         try:
-            p1 = await app.download_media(photo1.big_file_id, file_name="pfp.png")
-         except Exception:
-            p1 = "CRAZYHUBBOT/assets/upic.png"
-         try:
-            p2 = await app.download_media(photo2.big_file_id, file_name="pfp1.png")
-         except Exception:
-            p2 = "CRAZYHUBBOT/assets/upic.png"
-            
-         img1 = Image.open(f"{p1}")
-         img2 = Image.open(f"{p2}")
+        tomorrow = _tomorrow()
+        out = f"couple_{cid}_{int(time.time())}.jpg"
+        made.append(out)
+        # Image banana CPU kaam hai: alag thread me, taaki bot na atke
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            make_couple_card,
+            p1, p2, u1.first_name or "", u2.first_name or "", tomorrow, out,
+        )
 
-         img = Image.open("CRAZYHUBBOT/assets/cppic.png")
-
-         img1 = img1.resize((437,437))
-         img2 = img2.resize((437,437))
-
-         mask = Image.new('L', img1.size, 0)
-         draw = ImageDraw.Draw(mask) 
-         draw.ellipse((0, 0) + img1.size, fill=255)
-
-         mask1 = Image.new('L', img2.size, 0)
-         draw = ImageDraw.Draw(mask1) 
-         draw.ellipse((0, 0) + img2.size, fill=255)
-
-
-         img1.putalpha(mask)
-         img2.putalpha(mask1)
-
-         draw = ImageDraw.Draw(img)
-
-         img.paste(img1, (116, 160), img1)
-         img.paste(img2, (789, 160), img2)
-
-         img.save(f'test_{cid}.png')
-    
-         TXT = f"""
-**ᴛᴏᴅᴀʏ's ᴄᴏᴜᴘʟᴇ ᴏғ ᴛʜᴇ ᴅᴀʏ :
-{N1} + {N2} = 💚
-ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ sᴇʟᴇᴄᴛᴇᴅ ᴏɴ {tomorrow} !!**
-"""
-    
-         await message.reply_photo(f"test_{cid}.png", caption=TXT, reply_markup=InlineKeyboardMarkup(POLICE),
-    )
-         await msg.delete()
-         a = upload_file(f"test_{cid}.png")
-         for x in a:
-           img = "https://graph.org/" + x
-           couple = {"c1_id": c1_id, "c2_id": c2_id}
-          # await save_couple(cid, today, couple, img)
-    
-         
-      # elif is_selected:
-      #   msg = await message.reply_text("𝐆ᴇᴛᴛɪɴɢ 𝐓ᴏᴅᴀʏs 𝐂ᴏᴜᴘʟᴇs 𝐈ᴍᴀɢᴇ...")
-      #   b = await _get_image(cid)
-       #  c1_id = int(is_selected["c1_id"])
-       #  c2_id = int(is_selected["c2_id"])
-       #  c1_name = (await app.get_users(c1_id)).first_name
-        # c2_name = (await app.get_users(c2_id)).first_name
-         
-      #   TXT = f"""
-#**𝐓ᴏᴅᴀʏ's 𝐒ᴇʟᴇᴄᴛᴇᴅ 𝐂ᴏᴜᴘʟᴇs 🎉 :
-#➖➖➖➖➖➖➖➖➖➖➖➖
-#[{c1_name}](tg://openmessage?user_id={c1_id}) + [{c2_name}](tg://openmessage?user_id={c2_id}) = ❣️
-#➖➖➖➖➖➖➖➖➖➖➖➖
-#𝐍ᴇxᴛ 𝐂ᴏᴜᴘʟᴇs 𝐖ɪʟʟ 𝐁ᴇ 𝐒ᴇʟᴇᴄᴛᴇᴅ 𝐎ɴ {tomorrow} !!**
-#"""
- #        await message.reply_photo(b, caption=TXT)
-        # await msg.delete()
+        TXT = (
+            "<b>\u1d1b\u1d0f\u1d05\u1d00\u028f's \u1d04\u1d0f\u1d1c\u1d18\u029f\u1d07 "
+            "\u1d0f\u0493 \u1d1b\u029c\u1d07 \u1d05\u1d00\u028f :</b>\n"
+            f"{_mention(u1)} + {_mention(u2)} = \U0001f49a\n"
+            "<b>\u0274\u1d07x\u1d1b \u1d04\u1d0f\u1d1c\u1d18\u029f\u1d07s \u1d21\u026a\u029f\u029f "
+            f"\u0299\u1d07 s\u1d07\u029f\u1d07\u1d04\u1d1b\u1d07\u1d05 \u1d0f\u0274 {tomorrow} !!</b>"
+        )
+        await message.reply_photo(
+            out,
+            caption=TXT,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(POLICE),
+        )
+        await msg.delete()
     except Exception as e:
-        print(str(e))
-    try:
-      os.remove(f"./downloads/pfp1.png")
-      os.remove(f"./downloads/pfp2.png")
-      os.remove(f"test_{cid}.png")
-    except Exception:
-       pass
-         
+        print(f"[couples] error: {e!r}")
+        if msg:
+            try:
+                await msg.edit("Couple image nahi ban payi, thodi der baad try karo.")
+            except Exception:
+                pass
+    finally:
+        for f in made:
+            try:
+                os.remove(f)
+            except Exception:
+                pass
+
 
 __mod__ = "COUPLES"
 __help__ = """
-**» /couples** - Get Todays Couples Of The Group In Interactive View
+**\u00bb /couples** - Get Todays Couples Of The Group In Interactive View
 """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

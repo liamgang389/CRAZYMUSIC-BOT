@@ -24,7 +24,7 @@ Env:
   INBUBBLE_BUTTONS=false          -> shim band (purana behaviour)
   INBUBBLE_FORCE=true             -> kurigram detection skip karke chalu
   INBUBBLE_MEDIA_CALLBACKS=a,b    -> jin callback prefixes wale photo/video messages
-                                     bhi in-bubble hon (default: dash_cb,dash_back).
+                                     bhi in-bubble hon (default: dash_cb,dash_back,ADMIN,close).
                                      URL-only buttons wale media hamesha in-bubble.
 """
 import html as _html
@@ -189,16 +189,28 @@ async def send_pro_post(
 # ======================================================================
 # SHIM: Kurigram client ke methods ke andar
 # ======================================================================
-def shim_enabled() -> bool:
+def shim_status():
+    """(enabled, reason)"""
     if os.getenv("INBUBBLE_BUTTONS", "true").lower() in ("0", "false", "no", "off"):
-        return False
+        return False, "INBUBBLE_BUTTONS=false set hai"
     if os.getenv("INBUBBLE_FORCE", "false").lower() in ("1", "true", "yes", "on"):
-        return True
+        return True, "INBUBBLE_FORCE=true"
     try:
         import pyrogram.types as t
-        return hasattr(t, "InputRichMessage")
-    except Exception:
-        return False
+        if hasattr(t, "InputRichMessage"):
+            return True, "Kurigram me InputRichMessage mila"
+        return False, "Kurigram me InputRichMessage NAHI mila (INBUBBLE_FORCE=true se chalu karo)"
+    except Exception as e:
+        return False, f"pyrogram import fail: {e}"
+
+
+def shim_enabled() -> bool:
+    return shim_status()[0]
+
+
+def log_status():
+    ok, why = shim_status()
+    LOGGER(__name__).info(f"in-bubble buttons: {'ON' if ok else 'OFF'} - {why}")
 
 
 _REG: "OrderedDict[tuple, dict]" = OrderedDict()  # (chat_id, mid) -> entry
@@ -240,7 +252,7 @@ def _media_buttons_ok(rows) -> bool:
     """Photo/video message tabhi in-bubble jab edit-safe ho: sirf URL buttons,
     ya callback prefixes allowlist me ho (default: dashboard)."""
     allow = tuple(
-        p.strip() for p in os.getenv("INBUBBLE_MEDIA_CALLBACKS", "dash_cb,dash_back").split(",") if p.strip()
+        p.strip() for p in os.getenv("INBUBBLE_MEDIA_CALLBACKS", "dash_cb,dash_back,ADMIN,close").split(",") if p.strip()
     )
     for row in rows:
         for b in row:
@@ -249,16 +261,47 @@ def _media_buttons_ok(rows) -> bool:
     return True
 
 
+_TAG_SPLIT = re.compile(r"(<[^>]*>)")
+
+
+def _md_to_html(text: str, allow_md: bool = True) -> str:
+    """Pyrogram ke mixed text (HTML + Markdown) ko valid rich-HTML me badalta hai.
+    - <a href=tg://user?id=1> (bina quotes) -> <a href="tg://user?id=1">
+    - [naam](url) -> <a href="url">naam</a>
+    - **bold**, __italic__, `code` -> <b>, <i>, <code>
+    - akela '&' -> &amp;
+    """
+    text = re.sub(r'(<a\s+href=)([^\s">][^\s>]*)(\s*>)', r'\1"\2"\3', text)
+    if allow_md:
+        text = re.sub(
+            r"\[([^\]\n]+)\]\(([^)\s]+)\)",
+            lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>',
+            text,
+        )
+    # tags ko placeholder bana do, taaki **bold** / __italic__ tags ke PAAR bhi chale
+    tags = []
+
+    def _stash(m):
+        tags.append(m.group(0))
+        return f"\x00{len(tags) - 1}\x00"
+
+    text = _TAG_SPLIT.sub(_stash, text)
+    text = re.sub(r"&(?!(?:amp|lt|gt|quot|#\d+);)", "&amp;", text)
+    if allow_md:
+        text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text, flags=re.S)
+        text = re.sub(r"__(.+?)__", r"<i>\1</i>", text, flags=re.S)
+        text = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", text)
+    return re.sub(r"\x00(\d+)\x00", lambda m: tags[int(m.group(1))], text)
+
+
 def _text_to_html(client, text: str, parse_mode) -> Optional[str]:
     from pyrogram.enums import ParseMode
     pm = parse_mode if parse_mode is not None else getattr(client, "parse_mode", ParseMode.DEFAULT)
     if pm == ParseMode.DISABLED:
         return _html.escape(text)
-    if pm == ParseMode.MARKDOWN:
-        return None
-    if pm == ParseMode.DEFAULT and re.search(r"\*\*|__|`|\|\|", text):
-        return None
-    return text
+    if pm in (ParseMode.DEFAULT, ParseMode.MARKDOWN) and re.search(r"\|\||```|~~", text):
+        return None  # spoiler / code-block / strike: safe nahi, purana tareeka
+    return _md_to_html(text, allow_md=(pm != ParseMode.HTML))
 
 
 async def _as_message(client, chat_id, mid, body=None):
@@ -294,7 +337,7 @@ _SEND_OK = {
 }
 _MEDIA_IGNORE = {  # media args jo bubble me farak nahi daalte
     "caption", "supports_streaming", "duration", "width", "height", "thumb",
-    "file_name", "show_caption_above_media",
+    "file_name", "show_caption_above_media", "progress", "progress_args",
 }
 
 
@@ -302,7 +345,7 @@ def _extra_args_block(kwargs, ok) -> bool:
     for k, v in kwargs.items():
         if k in ok or k in _MEDIA_IGNORE:
             continue
-        if v not in (None, False):
+        if v:
             return True
     return False
 
@@ -358,11 +401,22 @@ async def shim_send_media(client, kind, chat_id, media, args, kwargs):
             return None
         if kwargs.get("has_spoiler") or kwargs.get("ttl_seconds"):
             return None
-        if _extra_args_block({k: v for k, v in kwargs.items() if k not in ("has_spoiler", "ttl_seconds")}, _SEND_OK):
+        extra = [k for k, v in kwargs.items()
+                 if k not in _SEND_OK and k not in _MEDIA_IGNORE
+                 and k not in ("has_spoiler", "ttl_seconds") and v]
+        if extra:
+            LOGGER(__name__).info(f"in-bubble {kind} skip: extra args {extra}")
             return None
         rows = markup_to_rows(markup)
         src = _media_src(media)
-        if not rows or src is None or not _media_buttons_ok(rows):
+        if not rows:
+            LOGGER(__name__).info(f"in-bubble {kind} skip: unsupported button type")
+            return None
+        if src is None:
+            LOGGER(__name__).info(f"in-bubble {kind} skip: media source not url/file/file_id: {type(media).__name__}")
+            return None
+        if not _media_buttons_ok(rows):
+            LOGGER(__name__).info(f"in-bubble {kind} skip: callback buttons allowlisted nahi (player etc.). Chalu karna ho: INBUBBLE_MEDIA_CALLBACKS env me prefix daalo")
             return None
         caption = kwargs.get("caption") or ""
         body = _text_to_html(client, caption, kwargs.get("parse_mode")) if caption else ""
@@ -387,7 +441,7 @@ async def shim_edit_text(client, chat_id, message_id, text, args, kwargs):
         from pyrogram.types import InlineKeyboardMarkup
         if args or not isinstance(chat_id, int) or not text:
             return None
-        if any(v not in (None, False) for k, v in kwargs.items() if k not in _EDIT_OK):
+        if any(v for k, v in kwargs.items() if k not in _EDIT_OK):
             return None
         if kwargs.get("entities"):
             return None
@@ -443,8 +497,8 @@ async def shim_edit_caption(client, chat_id, message_id, caption, args, kwargs):
 async def shim_edit_markup(client, chat_id, message_id, reply_markup, kwargs):
     try:
         key = (chat_id, message_id)
-        if key not in _REG or kwargs:
-            return None
+        if key not in _REG or any(v for v in kwargs.values()):
+            return None  # khaali kwargs (business_connection_id=None) ignore
         rows = markup_to_rows(reply_markup) if reply_markup else []
         if reply_markup and not rows:
             return None
